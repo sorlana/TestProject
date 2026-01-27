@@ -1,0 +1,224 @@
+version: '3.8'
+
+# ============= СЕТИ =============
+networks:
+  test-microservices:
+    driver: bridge
+    name: test-microservices
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# ============= VOLUMES =============
+volumes:
+  postgres_data_test:
+    driver: local
+  redis_data_test:
+    driver: local
+
+# ============= СЕРВИСЫ =============
+services:
+  # ==================== POSTGRESQL (ДЛЯ TEST SERVICE) ====================
+  postgres-test:
+    container_name: postgres-test
+    image: postgres:15-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    
+    volumes:
+      - postgres_data_test:/var/lib/postgresql/data
+      - ../apps/test-service/migrations:/docker-entrypoint-initdb.d:ro
+      - ./init-scripts:/docker-entrypoint-initdb.d/custom:ro
+    
+    networks:
+      - test-microservices
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c max_connections=50
+      -c effective_cache_size=512MB
+      -c log_statement=all
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==================== TEST SERVICE (ОСНОВНОЙ СЕРВИС) ====================
+  test-service:
+    container_name: test-service
+    build:
+      context: ../apps/test-service
+      dockerfile: Dockerfile.local
+      args:
+        - NODE_ENV=development
+    restart: unless-stopped
+    ports:
+      - "4000:4000"  # Другой порт, чтобы не конфликтовать
+      - "9230:9230"  # Port для Node.js debugger
+    
+    environment:
+      # Основные настройки
+      NODE_ENV: development
+      PORT: 4000
+      LOG_LEVEL: debug
+      API_PREFIX: /api/v1
+      
+      # База данных
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_NAME: testdb
+      DB_USER: test_user
+      DB_PASSWORD: test123
+      DB_SSL: "false"
+      
+      # Отладка
+      DEBUG: test-service:*,express:*
+      NODE_OPTIONS: "--inspect=0.0.0.0:9230 --max-old-space-size=512"
+      
+      # Безопасность
+      JWT_SECRET: development_jwt_secret_change_in_production
+      JWT_EXPIRES_IN: 30d
+      CORS_ORIGIN: "*"
+      
+      # Rate limiting
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX: 1000
+      
+      # Настройки приложения
+      APP_NAME: test-service
+      LESSONS_PER_PAGE: 20
+      COURSES_PER_PAGE: 10
+    
+    volumes:
+      - ../apps/test-service:/app
+      - /app/node_modules
+      - ./hot-reload:/app/hot-reload:ro
+    
+    networks:
+      - test-microservices
+    
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    user: "1000:1000"
+    
+    command: >
+      sh -c "
+        echo '🚀 Starting Test Service development server...' &&
+        npm install --only=dev &&
+        npx nodemon --inspect=0.0.0.0:9230 --watch src --ext js,json src/server.js
+      "
+
+  # ==================== PGADMIN (ДЛЯ УПРАВЛЕНИЯ БД) ====================
+  pgadmin-test:
+    container_name: pgadmin-test
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@test.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    
+    volumes:
+      - ./pgadmin-servers-test.json:/pgadmin4/servers.json:ro
+    
+    networks:
+      - test-microservices
+    
+    depends_on:
+      - postgres-test
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==================== REDIS (ДЛЯ КЭШИРОВАНИЯ) ====================
+  redis-test:
+    container_name: redis-test
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    
+    command: redis-server --appendonly yes --requirepass test123
+    
+    volumes:
+      - redis_data_test:/data
+    
+    networks:
+      - test-microservices
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==================== ADMINER (АЛЬТЕРНАТИВА PGADMIN) ====================
+  adminer-test:
+    container_name: adminer-test
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "8083:8080"
+    
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres-test
+      ADMINER_DESIGN: pepa-linha
+    
+    networks:
+      - test-microservices
+    
+    depends_on:
+      - postgres-test
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ============= КОМАНДЫ ДЛЯ УПРАВЛЕНИЯ =============
+# Запуск: docker-compose -f docker/docker-compose.local.yaml up -d
+# Остановка: docker-compose -f docker/docker-compose.local.yaml down
+# Логи: docker-compose -f docker/docker-compose.local.yaml logs -f test-service

@@ -1,0 +1,12 @@
+# .dockerignore в apps/test-service/
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.git/
+**/node_modules/
+**/TestResults/
+**/publish/
+**/*.user
+**/*.suo
+**/*.db

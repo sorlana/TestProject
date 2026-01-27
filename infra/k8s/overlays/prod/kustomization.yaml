@@ -1,0 +1,241 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Описание продакшен окружения
+namePrefix: prod-
+nameSuffix: -prod
+namespace: testproject-namespace-prod
+
+# Метаданные
+labels:
+  - pairs:
+      environment: production
+      tier: production
+      managed-by: kustomize-production
+      app.kubernetes.io/environment: production
+      app.kubernetes.io/version: "1.0.0"
+
+annotations:
+  - pairs:
+      environment: production
+      deployed-by: "kustomize-production-overlay"
+      deployment-timestamp: "2024-01-01T00:00:00Z"
+      change-management-ticket: "PROD-"
+      team: "platform-engineering"
+      cost-center: "production"
+      business-unit: "core-services"
+      sla-tier: "platinum"
+      backup-schedule: "daily-2am"
+      retention-policy: "30days"
+      monitoring-level: "full"
+      security-tier: "pci-dss"
+
+# Базовые ресурсы
+resources:
+  - ../../base/namespace/
+  - ../../base/networking/
+  - ../../base/monitoring/
+  # PostgreSQL исключаем, используем managed БД
+  # - ../../base/postgres/
+
+# Применяем патчи для продакшена
+patchesStrategicMerge:
+  - patch-managed-db.yaml
+  - ssl-patch.yaml
+  - patch-production-configs.yaml
+  - patch-hpa-production.yaml
+  - patch-resource-limits.yaml
+  - patch-security.yaml
+
+# JSON патчи для точных изменений
+patchesJson6902:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: test-service
+    path: patch-deployment-production.json
+  - target:
+      group: autoscaling
+      version: v2
+      kind: HorizontalPodAutoscaler
+      name: test-service-hpa
+    path: patch-hpa-production.json
+  - target:
+      group: monitoring.coreos.com
+      version: v1
+      kind: PrometheusRule
+      name: test-project-rules
+    path: patch-prometheus-rules-production.json
+
+# Генераторы ConfigMaps
+configMapGenerator:
+  - name: test-service-config
+    namespace: testproject-namespace-prod
+    behavior: merge
+    literals:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DOTNET_ENVIRONMENT=Production
+      - AppSettings__Name=TestService Production
+      - AppSettings__ApiTitle=TestService API - Production
+      - AppSettings__ApiDescription=Production environment for live traffic
+      - AppSettings__ContactEmail=prod-support@testproject.com
+      - AppSettings__ContactUrl=https://support.testproject.com
+      - AppSettings__EnableSwagger=false
+      - AppSettings__EnableDetailedErrors=false
+      - AppSettings__EnableDeveloperExceptionPage=false
+      - Cors__AllowedOrigins=https://testproject.com,https://api.testproject.com,https://app.testproject.com
+      - Cors__AllowCredentials=true
+      - Database__EnableSensitiveDataLogging=false
+      - Database__EnableDetailedErrors=false
+      - HealthChecks__Endpoint=/health
+      - HealthChecks__UIEndpoint=/health-ui
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__Microsoft=Warning
+      - Logging__LogLevel__System=Warning
+      - RateLimiting__Enabled=true
+      - RateLimiting__PermitLimit=100
+      - RateLimiting__WindowInSeconds=60
+      - OTEL_SERVICE_NAME=test-service-production
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=test-service-production,service.version=1.0.0,deployment.environment=production
+      - FeatureFlags__EnableSwagger=false
+      - FeatureFlags__EnableMetrics=true
+      - FeatureFlags__EnableHealthChecks=true
+      - FeatureFlags__EnableExperimentalApi=false
+      - Temporary__SeedDatabase=false
+      - Temporary__RunMigrationsOnStart=true
+      - Temporary__CreateTestData=false
+      - Security__RequireHttps=true
+      - Security__HstsMaxAge=31536000
+      - Security__HstsIncludeSubdomains=true
+      - Security__HstsPreload=true
+
+# Генераторы Secrets
+secretGenerator:
+  - name: test-service-secrets
+    namespace: testproject-namespace-prod
+    behavior: merge
+    envs:
+      - .env.production.secret
+    options:
+      disableNameSuffixHash: true
+      type: kubernetes.io/tls
+  - name: yandex-managed-postgres-ca
+    namespace: testproject-namespace-prod
+    files:
+      - ca.pem
+    type: Opaque
+
+# Изменение образов для продакшена
+images:
+  - name: test-service
+    newName: cr.yandex/${YC_REGISTRY_ID}/test-service
+    newTag: ${IMAGE_TAG}
+    digest: sha256:${IMAGE_SHA256}
+  - name: postgres
+    newName: postgres
+    newTag: 15-alpine  # Только для локального development, в проде не используется
+
+# Ресурсы для внешних зависимостей
+components:
+  - components/external-dns/
+  - components/cert-manager/
+
+# Замены переменных
+replacements:
+  - source:
+      kind: ConfigMap
+      name: test-service-config
+      fieldPath: data.ASPNETCORE_ENVIRONMENT
+    targets:
+      - select:
+          kind: Deployment
+          name: test-service
+        fieldPaths:
+          - spec.template.spec.containers.[name:test-service].env.[name:ASPNETCORE_ENVIRONMENT].value
+  - source:
+      kind: Secret
+      name: yandex-managed-postgres-secrets
+      fieldPath: data.DB_HOST
+    targets:
+      - select:
+          kind: Deployment
+          name: test-service
+        fieldPaths:
+          - spec.template.spec.containers.[name:test-service].env.[name:ConnectionStrings__DefaultConnection].valueFrom.secretKeyRef.key
+
+# Настройка трансформаторов
+transformers:
+  - transformers/production/
+
+# Валидаторы
+validators:
+  - validators/production/
+
+# Конфигурации
+configurations:
+  - kustomizeconfig.yaml
+
+# Список ресурсов в порядке применения
+resources:
+  # 1. Namespace и RBAC
+  - ../../base/namespace/namespace.yaml
+  
+  # 2. Секреты (первыми, т.к. нужны для других ресурсов)
+  - secret.yaml
+  
+  # 3. Конфигурации
+  - configmap.yaml
+  
+  # 4. Приложение
+  - ../../base/test-service/deployment.yaml
+  - ../../base/test-service/service.yaml
+  - ../../base/test-service/hpa.yaml
+  
+  # 5. Сеть
+  - ../../base/networking/ingress.yaml
+  - ../../base/networking/network-policy.yaml
+  
+  # 6. Мониторинг
+  - ../../base/monitoring/service-monitor.yaml
+  - ../../base/monitoring/pod-monitor.yaml
+  - ../../base/monitoring/prometheus-rules.yaml
+  
+  # 7. External DNS и Cert Manager (если используются)
+  - external-dns.yaml
+  - cert-manager-issuer.yaml
+
+# Настройки генераторов
+generatorOptions:
+  disableNameSuffixHash: false  # В продакшене используем хеши для отслеживания изменений
+  labels:
+    environment: production
+    production: "true"
+    app.kubernetes.io/managed-by: kustomize
+  annotations:
+    kustomize.production/overlay: "true"
+    production-environment: "true"
+    git-commit: ${GIT_COMMIT}
+    git-repo: ${GIT_REPO}
+    built-by: github-actions
+
+# Переменные окружения для kustomize
+vars:
+  - name: IMAGE_TAG
+    objref:
+      kind: ConfigMap
+      name: kustomize-vars
+      apiVersion: v1
+    fieldref:
+      fieldpath: data.IMAGE_TAG
+  - name: GIT_COMMIT
+    objref:
+      kind: ConfigMap
+      name: kustomize-vars
+      apiVersion: v1
+    fieldref:
+      fieldpath: data.GIT_COMMIT
+
+# Плагины (если используются)
+plugins:
+  - path: plugins/production/

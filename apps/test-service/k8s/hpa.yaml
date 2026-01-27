@@ -1,0 +1,122 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: test-service-hpa
+  namespace: testproject-namespace
+  labels:
+    app: test-service
+    component: autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: test-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: 100
+    - type: Object
+      object:
+        metric:
+          name: http_request_duration_seconds
+        describedObject:
+          apiVersion: v1
+          kind: Service
+          name: test-service
+        target:
+          type: Value
+          value: 200m  # 200 milliseconds
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+      selectPolicy: Min
+---
+# Prometheus metrics для .NET приложения
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: test-service-monitor
+  namespace: testproject-namespace
+  labels:
+    app: test-service
+    release: prometheus-operator
+spec:
+  selector:
+    matchLabels:
+      app: test-service
+  namespaceSelector:
+    matchNames:
+      - testproject-namespace
+  endpoints:
+    - port: http-metrics
+      interval: 30s
+      path: /metrics
+      scrapeTimeout: 10s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: kubernetes_node
+    - port: http
+      interval: 30s
+      path: /health
+      scrapeTimeout: 5s
+---
+# PodMonitor для сбора метрик из .NET приложения
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: test-service-pod-monitor
+  namespace: testproject-namespace
+  labels:
+    app: test-service
+    release: prometheus-operator
+spec:
+  selector:
+    matchLabels:
+      app: test-service
+  podMetricsEndpoints:
+    - port: http-metrics
+      interval: 30s
+      path: /metrics
+      scrapeTimeout: 10s
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: 'dotnet_.*'
+          action: keep
+    - port: http
+      interval: 30s
+      path: /health
+      scrapeTimeout: 5s
+      params:
+        detailed: [ "true" ]

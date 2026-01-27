@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-service
+  namespace: testproject-namespace-prod
+spec:
+  template:
+    spec:
+      containers:
+      - name: test-service
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        env:
+        - name: DOTNET_GCHeapCount
+          value: "2"
+        - name: DOTNET_ThreadPoolMinThreads
+          value: "10"
+        - name: DOTNET_ThreadPoolMaxThreads
+          value: "100"
+        - name: ASPNETCORE_THREADPOOL_MAXTHREADS
+          value: "100"
+        - name: ASPNETCORE_THREADPOOL_MINTHREADS
+          value: "10"

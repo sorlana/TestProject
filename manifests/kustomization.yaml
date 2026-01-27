@@ -1,0 +1,91 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: testproject-namespace
+
+namePrefix: testproject-
+nameSuffix: -v1
+
+commonLabels:
+  app.kubernetes.io/name: testproject
+  app.kubernetes.io/component: rbac
+  app.kubernetes.io/part-of: testproject
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/version: "1.0.0"
+
+commonAnnotations:
+  description: "RBAC манифесты для проекта TestProject"
+  environment: "production"
+  maintainer: "TestProject Team"
+  created-by: "kustomize"
+  last-updated: "2024-01-01"
+
+resources:
+  - namespace.yaml
+  - service-account.yaml
+  - cluster-role.yaml
+  - cluster-role-binding.yaml
+
+# Замены для разных окружений
+replacements:
+  - source:
+      kind: Namespace
+      name: testproject-namespace
+      fieldPath: metadata.name
+    targets:
+      - select:
+          kind: ServiceAccount
+          name: testproject-service-account
+        fieldPaths:
+          - metadata.namespace
+      
+      - select:
+          kind: ServiceAccount
+          name: testproject-backup-service-account
+        fieldPaths:
+          - metadata.namespace
+      
+      - select:
+          kind: ServiceAccount
+          name: testproject-migration-service-account
+        fieldPaths:
+          - metadata.namespace
+      
+      - select:
+          kind: ServiceAccount
+          name: testproject-monitoring-service-account
+        fieldPaths:
+          - metadata.namespace
+
+# Конфигурация для разных окружений
+configurations:
+  - kustomizeconfig.yaml
+
+# Генераторы (если нужно динамически создавать ресурсы)
+generators:
+  - generators/rbac-generator.yaml
+
+# Трансформеры
+transformers:
+  - transformers/namespace-transformer.yaml
+  - transformers/label-transformer.yaml
+
+# Патчи для специфичных окружений
+patchesStrategicMerge:
+  - patches/development/rbac-patch.yaml
+  - patches/production/rbac-patch.yaml
+
+# JSON патчи
+patchesJson6902:
+  - target:
+      group: rbac.authorization.k8s.io
+      version: v1
+      kind: ClusterRole
+      name: testproject-app-role
+    patch: |-
+      - op: add
+        path: /rules/-
+        value:
+          apiGroups: [""]
+          resources: ["services", "endpoints"]
+          verbs: ["get", "list", "watch"]

@@ -1,0 +1,250 @@
+# Network Policy по умолчанию для namespace: запрещает весь трафик
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: testproject-namespace
+  labels:
+    app: test-project
+    component: network-policy
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Разрешаем DNS разрешение (исходящий трафик на порт 53)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: testproject-namespace
+  labels:
+    app: test-project
+    component: network-policy
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Разрешаем входящий трафик от ingress-nginx контроллера
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress
+  namespace: testproject-namespace
+  labels:
+    app: test-project
+    component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: test-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# Разрешаем входящий трафик для мониторинга (Prometheus)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring
+  namespace: testproject-namespace
+  labels:
+    app: test-project
+    component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: test-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# Разрешаем трафик между микросервисами внутри namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-namespace-internal
+  namespace: testproject-namespace
+  labels:
+    app: test-project
+    component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: test-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: test-service
+    - from:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: test-service
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Разрешаем исходящий трафик для доступа к внешним API (например, для отправки email)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-external
+  namespace: testproject-namespace
+  labels:
+    app: test-project
+    component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: test-service
+  policyTypes:
+    - Egress
+  egress:
+    # Разрешаем доступ к SMTP серверу
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 587
+        - protocol: TCP
+          port: 465
+    # Разрешаем доступ к внешним API (HTTPS)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+    # Разрешаем доступ к внешним API (HTTP)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 80
+---
+# Network Policy для PostgreSQL: разрешаем доступ только от test-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-allow-test-service
+  namespace: testproject-namespace
+  labels:
+    app: postgres
+    component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: test-service
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Разрешаем доступ от самого себя (для репликации)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Разрешаем доступ от backup job
+    - from:
+        - podSelector:
+            matchLabels:
+              component: backup
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Network Policy для исходящего трафика из PostgreSQL (например, для репликации)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-egress
+  namespace: testproject-namespace
+  labels:
+    app: postgres
+    component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Egress
+  egress:
+    # Разрешаем доступ к DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Разрешаем исходящий трафик для репликации (если нужно)
+    # - to:
+    #     - podSelector:
+    #         matchLabels:
+    #           app: postgres
+    #   ports:
+    #     - protocol: TCP
+    #       port: 5432

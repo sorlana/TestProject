@@ -1,0 +1,263 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: testproject-namespace
+  labels:
+    name: testproject-namespace
+    environment: production
+    managed-by: kustomize
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/instance: testproject
+    app.kubernetes.io/component: namespace
+    app.kubernetes.io/part-of: testproject-platform
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: terraform
+  annotations:
+    description: "Namespace для проекта TestProject с микросервисом test-service"
+    owner: "platform-team"
+    cost-center: "engineering"
+    project: "TestProject"
+    version: "1.0.0"
+    kustomize.toolkit.fluxcd.io/name: "testproject"
+    kustomize.toolkit.fluxcd.io/namespace: "flux-system"
+    linkerd.io/inject: "enabled"  # Для service mesh, если используется
+    istio.io/rev: "stable"  # Для Istio, если используется
+    # Дополнительные аннотации для мониторинга и логирования
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+---
+# Resource Quotas для контроля ресурсов в namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: testproject-resource-quota
+  namespace: testproject-namespace
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/instance: testproject
+    app.kubernetes.io/component: quota
+spec:
+  hard:
+    # Вычислительные ресурсы
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    
+    # Количество ресурсов
+    pods: "50"
+    services: "20"
+    replicationcontrollers: "20"
+    secrets: "50"
+    configmaps: "50"
+    persistentvolumeclaims: "10"
+    
+    # Storage ресурсы
+    requests.storage: 100Gi
+    requests.ephemeral-storage: 10Gi
+    limits.ephemeral-storage: 20Gi
+    
+    # Object counts для контроля API нагрузки
+    count/deployments.apps: "10"
+    count/statefulsets.apps: "5"
+    count/jobs.batch: "5"
+    count/cronjobs.batch: "5"
+    count/ingresses.extensions: "5"
+    
+    # LoadBalancer (если используется)
+    services.loadbalancers: "2"
+    
+    # Node ports (если используются)
+    services.nodeports: "5"
+---
+# Limit Range для установки лимитов по умолчанию
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: testproject-limit-range
+  namespace: testproject-namespace
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/instance: testproject
+    app.kubernetes.io/component: limitrange
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 500m
+        memory: 512Mi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      max:
+        cpu: "2"
+        memory: 2Gi
+      min:
+        cpu: 10m
+        memory: 32Mi
+    - type: Pod
+      max:
+        cpu: "4"
+        memory: 4Gi
+    - type: PersistentVolumeClaim
+      min:
+        storage: 1Gi
+      max:
+        storage: 50Gi
+---
+# Network Policy для базовой сетевой безопасности
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: testproject-namespace
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/instance: testproject
+    app.kubernetes.io/component: networkpolicy
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Network Policy разрешающая трафик внутри namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-namespace-internal
+  namespace: testproject-namespace
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/instance: testproject
+    app.kubernetes.io/component: networkpolicy
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}
+---
+# Network Policy разрешающая трафик от ingress контроллера
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress
+  namespace: testproject-namespace
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/instance: testproject
+    app.kubernetes.io/component: networkpolicy
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 8080
+---
+# Service Account для приложений в namespace
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: testproject-service-account
+  namespace: testproject-namespace
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/instance: testproject
+    app.kubernetes.io/component: serviceaccount
+  annotations:
+    description: "Service Account для приложений TestProject"
+    iam.gke.io/gcp-service-account: "testproject-sa@your-project.iam.gserviceaccount.com"  # Для GKE
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/testproject-role"  # Для EKS
+automountServiceAccountToken: true
+---
+# Pod Security Standards (Kubernetes 1.23+)
+# Примечание: Настройте в соответствии с требованиями безопасности
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: testproject-restricted-psp
+  namespace: testproject-namespace
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/instance: testproject
+    app.kubernetes.io/component: psp
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+---
+# Priority Class для управления приоритетом подов
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: testproject-high-priority
+value: 1000000
+globalDefault: false
+description: "Высокий приоритет для критичных подов TestProject"
+---
+# Pod Disruption Budget для обеспечения доступности
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: testproject-pdb
+  namespace: testproject-namespace
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/instance: testproject
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: testproject
+---
+# Kustomization файл для namespace (опционально)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: testproject-namespace
+resources:
+  - namespace.yaml
+  - resourcequota.yaml
+  - limitrange.yaml
+  - networkpolicy.yaml
+  - serviceaccount.yaml
+  # Добавьте другие ресурсы по мере необходимости

@@ -1,0 +1,361 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: testproject-namespace
+  labels:
+    app: postgres
+    component: backup
+    tier: backend
+    app.kubernetes.io/name: postgres-backup
+    app.kubernetes.io/instance: postgres-backup-job
+spec:
+  # Расписание: каждый день в 2:00 AM
+  schedule: "0 2 * * *"
+  startingDeadlineSeconds: 300
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  suspend: false
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: postgres
+            component: backup
+            tier: backend
+        spec:
+          serviceAccountName: testproject-service-account
+          restartPolicy: OnFailure
+          containers:
+            - name: postgres-backup
+              image: postgres:15-alpine
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: POSTGRES_HOST
+                  value: "postgres"
+                - name: POSTGRES_PORT
+                  value: "5432"
+                - name: POSTGRES_DB
+                  valueFrom:
+                    configMapKeyRef:
+                      name: postgres-config
+                      key: POSTGRES_DB
+                - name: POSTGRES_USER
+                  valueFrom:
+                    configMapKeyRef:
+                      name: postgres-config
+                      key: POSTGRES_USER
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secrets
+                      key: POSTGRES_PASSWORD
+                - name: BACKUP_RETENTION_DAYS
+                  value: "7"
+                - name: BACKUP_DIR
+                  value: "/backups"
+                - name: S3_BUCKET
+                  value: "postgres-backups"  # Для S3 бэкапов
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  
+                  echo "🚀 Starting PostgreSQL backup at $(date)"
+                  
+                  # Создаем директорию для бэкапов
+                  mkdir -p ${BACKUP_DIR}
+                  
+                  # Имя файла бэкапа
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.sql.gz"
+                  WAL_BACKUP_FILE="${BACKUP_DIR}/wal_backup_${TIMESTAMP}.tar.gz"
+                  
+                  # Экспорт пароля
+                  export PGPASSWORD="${POSTGRES_PASSWORD}"
+                  
+                  echo "📊 Получение информации о базе данных..."
+                  
+                  # Получаем информацию о базе данных
+                  DB_SIZE=$(psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+                    -t -c "SELECT pg_size_pretty(pg_database_size('${POSTGRES_DB}'));" | tr -d '[:space:]')
+                  
+                  echo "📈 Размер базы данных: ${DB_SIZE}"
+                  
+                  # Полный бэкап базы данных
+                  echo "💾 Выполнение полного бэкапа базы данных..."
+                  
+                  pg_dumpall \
+                    -h "${POSTGRES_HOST}" \
+                    -p "${POSTGRES_PORT}" \
+                    -U "${POSTGRES_USER}" \
+                    --clean \
+                    --if-exists \
+                    --no-owner \
+                    --no-privileges \
+                    --verbose \
+                    | gzip -9 > "${BACKUP_FILE}"
+                  
+                  # Проверяем успешность бэкапа
+                  if [ $? -eq 0 ] && [ -s "${BACKUP_FILE}" ]; then
+                    BACKUP_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
+                    echo "✅ Полный бэкап успешно создан: ${BACKUP_FILE} (${BACKUP_SIZE})"
+                    
+                    # Создаем контрольную сумму
+                    sha256sum "${BACKUP_FILE}" > "${BACKUP_FILE}.sha256"
+                    
+                    # Бэкап WAL файлов (если настроена архивация WAL)
+                    echo "📁 Архивация WAL файлов..."
+                    
+                    # Если настроена архивация WAL, можно добавить бэкап pg_wal директории
+                    # tar -czf "${WAL_BACKUP_FILE}" -C /var/lib/postgresql/data/pgdata pg_wal 2>/dev/null || true
+                    
+                    # Отправка в S3 (если настроено)
+                    if [ -n "${AWS_ACCESS_KEY_ID}" ] && [ -n "${S3_BUCKET}" ]; then
+                      echo "☁️  Отправка бэкапа в S3..."
+                      aws s3 cp "${BACKUP_FILE}" "s3://${S3_BUCKET}/postgres/full/${TIMESTAMP}.sql.gz"
+                      aws s3 cp "${BACKUP_FILE}.sha256" "s3://${S3_BUCKET}/postgres/full/${TIMESTAMP}.sql.gz.sha256"
+                    fi
+                    
+                    # Очистка старых бэкапов (локальных)
+                    echo "🧹 Очистка старых бэкапов..."
+                    find "${BACKUP_DIR}" -name "backup_*.sql.gz" -mtime +${BACKUP_RETENTION_DAYS} -delete
+                    find "${BACKUP_DIR}" -name "backup_*.sql.gz.sha256" -mtime +${BACKUP_RETENTION_DAYS} -delete
+                    find "${BACKUP_DIR}" -name "wal_backup_*.tar.gz" -mtime +${BACKUP_RETENTION_DAYS} -delete
+                    
+                    # Логирование успеха
+                    echo "📝 Логирование успешного бэкапа в БД..."
+                    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+                      -c "INSERT INTO public.backup_log (backup_type, filename, size, status, message) VALUES ('full', '${BACKUP_FILE}', '${BACKUP_SIZE}', 'success', 'Full backup completed successfully');" \
+                      2>/dev/null || true
+                    
+                    echo "🎉 Бэкап успешно завершен!"
+                  else
+                    echo "❌ Ошибка при создании бэкапа!"
+                    
+                    # Логирование ошибки
+                    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+                      -c "INSERT INTO public.backup_log (backup_type, filename, status, message) VALUES ('full', '${BACKUP_FILE}', 'failed', 'Backup creation failed');" \
+                      2>/dev/null || true
+                    
+                    exit 1
+                  fi
+                  
+                  echo "🏁 Backup job completed at $(date)"
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+                - name: backup-scripts
+                  mountPath: /scripts
+                  readOnly: true
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "500m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "1"
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                runAsUser: 1000
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: postgres-backup-pvc
+            - name: backup-scripts
+              configMap:
+                name: postgres-backup-scripts
+---
+# ConfigMap со скриптами для бэкапов
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-backup-scripts
+  namespace: testproject-namespace
+  labels:
+    app: postgres
+    component: backup
+    tier: backend
+data:
+  restore.sh: |
+    #!/bin/bash
+    # Скрипт для восстановления базы данных из бэкапа
+    
+    set -e
+    
+    if [ -z "$1" ]; then
+      echo "Usage: $0 <backup_file> [--clean]"
+      echo "Example: $0 /backups/backup_20240101_020000.sql.gz"
+      exit 1
+    fi
+    
+    BACKUP_FILE="$1"
+    CLEAN_RESTORE=false
+    
+    if [ "$2" == "--clean" ]; then
+      CLEAN_RESTORE=true
+    fi
+    
+    if [ ! -f "${BACKUP_FILE}" ]; then
+      echo "Error: Backup file not found: ${BACKUP_FILE}"
+      exit 1
+    fi
+    
+    echo "🔍 Проверка контрольной суммы..."
+    
+    # Проверяем контрольную сумму
+    if [ -f "${BACKUP_FILE}.sha256" ]; then
+      sha256sum -c "${BACKUP_FILE}.sha256"
+      if [ $? -ne 0 ]; then
+        echo "❌ Контрольная сумма не совпадает!"
+        exit 1
+      fi
+    else
+      echo "⚠️  Файл контрольной суммы не найден, пропускаем проверку"
+    fi
+    
+    echo "🔄 Начинаем восстановление из файла: ${BACKUP_FILE}"
+    
+    # Экспортируем пароль
+    export PGPASSWORD="${POSTGRES_PASSWORD}"
+    
+    if [ "${CLEAN_RESTORE}" = true ]; then
+      echo "🧹 Очистка базы данных перед восстановлением..."
+      
+      # Завершаем все активные подключения
+      psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d postgres \
+        -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${POSTGRES_DB}' AND pid <> pg_backend_pid();"
+      
+      # Удаляем и создаем базу данных заново
+      psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d postgres \
+        -c "DROP DATABASE IF EXISTS ${POSTGRES_DB};"
+      
+      psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d postgres \
+        -c "CREATE DATABASE ${POSTGRES_DB};"
+    fi
+    
+    echo "📥 Восстановление базы данных..."
+    
+    # Восстановление из бэкапа
+    gunzip -c "${BACKUP_FILE}" | psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"
+    
+    if [ $? -eq 0 ]; then
+      echo "✅ Восстановление успешно завершено!"
+      
+      # Проверяем восстановленную базу
+      echo "🔍 Проверка восстановленной базы данных..."
+      
+      DB_CHECK=$(psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+        -t -c "SELECT COUNT(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema');" | tr -d '[:space:]')
+      
+      echo "📊 Количество восстановленных таблиц: ${DB_CHECK}"
+      
+      # Логируем восстановление
+      psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+        -c "INSERT INTO public.backup_log (backup_type, filename, status, message) VALUES ('restore', '${BACKUP_FILE}', 'success', 'Database restored successfully');" \
+        2>/dev/null || true
+        
+      echo "🎉 Восстановление завершено успешно!"
+    else
+      echo "❌ Ошибка при восстановлении!"
+      exit 1
+    fi
+  
+  verify-backup.sh: |
+    #!/bin/bash
+    # Скрипт для проверки целостности бэкапа
+    
+    set -e
+    
+    if [ -z "$1" ]; then
+      echo "Usage: $0 <backup_file>"
+      exit 1
+    fi
+    
+    BACKUP_FILE="$1"
+    
+    echo "🔍 Проверка бэкапа: ${BACKUP_FILE}"
+    
+    # Проверяем существование файла
+    if [ ! -f "${BACKUP_FILE}" ]; then
+      echo "❌ Файл не найден"
+      exit 1
+    fi
+    
+    # Проверяем размер файла
+    FILE_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
+    echo "📏 Размер файла: ${FILE_SIZE}"
+    
+    # Проверяем контрольную сумму
+    if [ -f "${BACKUP_FILE}.sha256" ]; then
+      echo "🔐 Проверка контрольной суммы..."
+      sha256sum -c "${BACKUP_FILE}.sha256"
+      if [ $? -eq 0 ]; then
+        echo "✅ Контрольная сумма верна"
+      else
+        echo "❌ Контрольная сумма не совпадает"
+        exit 1
+      fi
+    else
+      echo "⚠️  Файл контрольной суммы не найден"
+    fi
+    
+    # Проверяем, что файл является валидным gzip архивом
+    echo "📦 Проверка формата gzip..."
+    gzip -t "${BACKUP_FILE}"
+    if [ $? -eq 0 ]; then
+      echo "✅ Файл является валидным gzip архивом"
+    else
+      echo "❌ Файл не является валидным gzip архивом"
+      exit 1
+    fi
+    
+    # Извлекаем заголовок SQL для проверки
+    echo "📄 Проверка SQL заголовка..."
+    HEADER=$(gunzip -c "${BACKUP_FILE}" | head -20)
+    
+    if echo "${HEADER}" | grep -q "PostgreSQL database cluster dump"; then
+      echo "✅ Заголовок PostgreSQL обнаружен"
+    else
+      echo "❌ Неверный формат SQL дампа"
+      exit 1
+    fi
+    
+    echo "🎉 Бэкап прошел все проверки!"
+    
+  create-backup-log-table.sql: |
+    -- Таблица для логирования бэкапов
+    CREATE TABLE IF NOT EXISTS public.backup_log (
+      id SERIAL PRIMARY KEY,
+      backup_type VARCHAR(50) NOT NULL, -- 'full', 'incremental', 'restore'
+      filename VARCHAR(500) NOT NULL,
+      size VARCHAR(50),
+      status VARCHAR(20) NOT NULL, -- 'success', 'failed', 'in_progress'
+      message TEXT,
+      checksum VARCHAR(64),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      completed_at TIMESTAMPTZ,
+      duration INTERVAL GENERATED ALWAYS AS (completed_at - created_at) STORED
+    );
+    
+    -- Индексы для таблицы логирования
+    CREATE INDEX IF NOT EXISTS idx_backup_log_created_at ON public.backup_log(created_at);
+    CREATE INDEX IF NOT EXISTS idx_backup_log_status ON public.backup_log(status);
+    CREATE INDEX IF NOT EXISTS idx_backup_log_type ON public.backup_log(backup_type);
+    
+    -- Комментарии
+    COMMENT ON TABLE public.backup_log IS 'Логирование операций бэкапа и восстановления';
+    COMMENT ON COLUMN public.backup_log.backup_type IS 'Тип бэкапа: full, incremental, restore';
+    COMMENT ON COLUMN public.backup_log.status IS 'Статус операции: success, failed, in_progress';
+    
+    -- Предоставление прав
+    GRANT SELECT, INSERT, UPDATE ON public.backup_log TO postgres;
+    GRANT USAGE ON SEQUENCE public.backup_log_id_seq TO postgres;

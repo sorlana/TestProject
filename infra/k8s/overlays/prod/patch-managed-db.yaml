@@ -1,0 +1,254 @@
+# Этот патч заменяет локальный PostgreSQL StatefulSet на подключение к Yandex Managed PostgreSQL
+# Удаляем StatefulSet, Service, PVC для локального PostgreSQL
+---
+# Удаляем локальные PostgreSQL ресурсы
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: postgres-config
+#   namespace: testproject-namespace-prod
+# $patch: delete
+---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: postgres-secrets
+#   namespace: testproject-namespace-prod
+# $patch: delete
+---
+# apiVersion: apps/v1
+# kind: StatefulSet
+# metadata:
+#   name: postgres
+#   namespace: testproject-namespace-prod
+# $patch: delete
+---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: postgres
+#   namespace: testproject-namespace-prod
+# $patch: delete
+---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: postgres-data
+#   namespace: testproject-namespace-prod
+# $patch: delete
+---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: postgres-backup-pvc
+#   namespace: testproject-namespace-prod
+# $patch: delete
+---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: postgres-wal-pvc
+#   namespace: testproject-namespace-prod
+# $patch: delete
+---
+# apiVersion: batch/v1
+# kind: CronJob
+# metadata:
+#   name: postgres-backup
+#   namespace: testproject-namespace-prod
+# $patch: delete
+
+# Создаем ConfigMap для managed PostgreSQL
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: managed-postgres-config
+  namespace: testproject-namespace-prod
+  labels:
+    app: managed-postgres
+    component: database
+    tier: backend
+    environment: production
+data:
+  # Настройки подключения к Yandex Managed PostgreSQL
+  DB_HOST: ${YC_MANAGED_POSTGRES_HOST}
+  DB_PORT: "6432"
+  DB_NAME: ${YC_MANAGED_POSTGRES_DB}
+  DB_USER: ${YC_MANAGED_POSTGRES_USER}
+  
+  # Настройки пула соединений для .NET
+  POOLING_ENABLED: "true"
+  POOL_MIN_SIZE: "5"
+  POOL_MAX_SIZE: "100"
+  POOL_CONNECTION_LIFETIME: "300"
+  POOL_CONNECTION_IDLE_LIFETIME: "30"
+  
+  # Настройки таймаутов
+  COMMAND_TIMEOUT: "30"
+  CONNECTION_TIMEOUT: "15"
+  
+  # SSL настройки
+  SSL_MODE: "VerifyFull"
+  SSL_ROOT_CERT_PATH: "/etc/ssl/certs/yandex-ca.pem"
+  
+  # Настройки для мониторинга
+  STATEMENT_TIMEOUT: "30000"
+  LOCK_TIMEOUT: "10000"
+  IDLE_IN_TRANSACTION_SESSION_TIMEOUT: "60000"
+  
+  # Настройки репликации (если используется)
+  MAX_WAL_SENDERS: "10"
+  MAX_REPLICATION_SLOTS: "10"
+  HOT_STANDBY: "on"
+  HOT_STANDBY_FEEDBACK: "on"
+
+# Secret для managed PostgreSQL
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: yandex-managed-postgres-secrets
+  namespace: testproject-namespace-prod
+  labels:
+    app: managed-postgres
+    component: database
+    tier: backend
+    environment: production
+  annotations:
+    sealedsecrets.bitnami.com/managed: "true"
+    yandex.cloud/kms-key-id: ${YC_KMS_KEY_ID}
+type: Opaque
+stringData:
+  # Пароль для managed PostgreSQL (будет зашифрован sealed-secrets)
+  DB_PASSWORD: ${YC_MANAGED_POSTGRES_PASSWORD}
+  
+  # Connection string для .NET приложения
+  ConnectionStrings__DefaultConnection: |
+    Host=${YC_MANAGED_POSTGRES_HOST};
+    Port=6432;
+    Database=${YC_MANAGED_POSTGRES_DB};
+    Username=${YC_MANAGED_POSTGRES_USER};
+    Password=${YC_MANAGED_POSTGRES_PASSWORD};
+    Pooling=true;
+    Minimum Pool Size=5;
+    Maximum Pool Size=100;
+    Connection Idle Lifetime=300;
+    Connection Pruning Interval=10;
+    Timeout=30;
+    Command Timeout=30;
+    Ssl Mode=VerifyFull;
+    Root Certificate=/etc/ssl/certs/yandex-ca.pem;
+    Trust Server Certificate=false
+  
+  # Дополнительные connection strings
+  ConnectionStrings__ReadReplica: |
+    Host=${YC_MANAGED_POSTGRES_READER_HOST};
+    Port=6432;
+    Database=${YC_MANAGED_POSTGRES_DB};
+    Username=${YC_MANAGED_POSTGRES_USER};
+    Password=${YC_MANAGED_POSTGRES_PASSWORD};
+    Pooling=true;
+    Minimum Pool Size=2;
+    Maximum Pool Size=20;
+    Application Name=TestService-ReadReplica;
+    Ssl Mode=VerifyFull;
+    Root Certificate=/etc/ssl/certs/yandex-ca.pem
+
+# ConfigMap с CA сертификатом Yandex Cloud
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: yandex-cloud-ca-cert
+  namespace: testproject-namespace-prod
+  labels:
+    app: yandex-cloud
+    component: certificates
+data:
+  ca.pem: |
+    -----BEGIN CERTIFICATE-----
+    MIIF...  # Вставить актуальный CA сертификат Yandex Cloud
+    -----END CERTIFICATE-----
+
+# Обновляем Deployment test-service для использования managed PostgreSQL
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-service
+  namespace: testproject-namespace-prod
+spec:
+  template:
+    spec:
+      containers:
+      - name: test-service
+        env:
+        # Используем managed PostgreSQL
+        - name: ConnectionStrings__DefaultConnection
+          valueFrom:
+            secretKeyRef:
+              name: yandex-managed-postgres-secrets
+              key: ConnectionStrings__DefaultConnection
+        # Добавляем путь к CA сертификату
+        - name: SSL_ROOT_CERT_PATH
+          value: /etc/ssl/certs/yandex-ca.pem
+        # Увеличиваем таймауты для managed БД
+        - name: Database__CommandTimeout
+          value: "60"
+        - name: Database__EnableRetryOnFailure
+          value: "true"
+        - name: Database__MaxRetryCount
+          value: "3"
+        - name: Database__MaxRetryDelay
+          value: "30"
+        volumeMounts:
+        - name: yandex-ca-cert
+          mountPath: /etc/ssl/certs/yandex-ca.pem
+          subPath: ca.pem
+          readOnly: true
+      volumes:
+      - name: yandex-ca-cert
+        configMap:
+          name: yandex-cloud-ca-cert
+          items:
+          - key: ca.pem
+            path: ca.pem
+
+# Обновляем NetworkPolicy для managed PostgreSQL
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-postgres
+  namespace: testproject-namespace-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: test-service
+  policyTypes:
+  - Egress
+  egress:
+  # Разрешаем исходящий трафик к Yandex Managed PostgreSQL
+  - to:
+    - ipBlock:
+        cidr: ${YC_MANAGED_POSTGRES_CIDR}/32
+    ports:
+    - protocol: TCP
+      port: 6432
+
+# Удаляем старые NetworkPolicy для локального PostgreSQL
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-allow-test-service
+  namespace: testproject-namespace-prod
+  $patch: delete
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-egress
+  namespace: testproject-namespace-prod
+  $patch: delete

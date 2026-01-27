@@ -1,0 +1,50 @@
+
+Инициализация Git и первый коммит**
+
+Откройте **PowerShell** или **Git Bash** и выполните:
+
+```powershell
+# 1. Перейдите в папку проекта
+cd D:\SITES\My\TestProject
+
+# 2. Инициализируйте Git репозиторий
+git init
+
+# 3. Проверьте, какие файлы будут добавлены (должны быть зелеными)
+git status
+
+# 4. Добавьте файлы в staging area
+git add .
+
+# 5. Проверьте, что не добавлены конфиденциальные файлы
+# Убедитесь, что .env и другие секретные файлы не отображаются в git status
+git status
+
+# 6. Создайте первый коммит
+git commit -m "Initial commit: Docker infrastructure with .NET, PostgreSQL, Redis, pgAdmin"
+
+# 7. Создайте ветку main (если не создана)
+git branch -M main
+
+# Создайте ветки для разных окружений
+git checkout -b development
+git checkout -b staging
+git checkout main  # Вернуться в main
+
+---------------------------------------
+powershell
+# Проверьте, что не добавляете секреты
+# Если случайно добавили .env, удалите его из индекса:
+git rm --cached .env
+
+# Проверьте размер проекта
+du -sh .  # Для Linux/Mac
+# Или для Windows:
+Get-ChildItem -Recurse | Measure-Object -Property Length -Sum | Select-Object Sum
+
+# Проверьте историю коммитов
+git log --oneline
+
+# Если нужно добавить какие-то файлы позже
+git add apps/test-service/  # Добавить папку с приложением
+git commit -m "Add .NET application"

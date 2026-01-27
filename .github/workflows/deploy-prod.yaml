@@ -1,0 +1,649 @@
+name: TestProject CD - Production Deployment (.NET 10)
+
+on:
+  push:
+    branches: [ main ]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+        - staging
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
+env:
+  # Yandex Cloud
+  YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+  YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
+  YC_SERVICE_ACCOUNT_KEY: ${{ secrets.YC_SERVICE_ACCOUNT_KEY }}
+  
+  # Docker
+  REGISTRY: cr.yandex
+  REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
+  IMAGE_NAME: test-service
+  
+  # Kubernetes
+  K8S_CLUSTER_ID: ${{ secrets.YC_K8S_CLUSTER_ID }}
+  K8S_NAMESPACE: testproject-namespace
+  
+  # Database
+  DB_CLUSTER_ID: ${{ secrets.YC_DB_CLUSTER_ID }}
+  
+  # Project
+  PROJECT_NAME: TestProject
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'production' }}
+  
+  # .NET settings
+  DOTNET_VERSION: '10.0.x'
+  DOTNET_PROJECT_PATH: 'apps/test-service/'
+  SOLUTION_FILE: 'YourSolution.sln'
+  WEBAPI_PROJECT: 'WebApi/WebApi.csproj'
+
+jobs:
+  # ==================== ПОДГОТОВКА ====================
+  setup:
+    name: Setup Environment (.NET 10)
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+      short_sha: ${{ steps.sha.outputs.short }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Determine image tag
+      id: tag
+      run: |
+        if [[ "${{ github.event_name }}" == "release" ]]; then
+          echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          SHORT_SHA=${GITHUB_SHA:0:8}
+          echo "tag=latest-$SHORT_SHA" >> $GITHUB_OUTPUT
+        else
+          SHORT_SHA=${GITHUB_SHA:0:8}
+          echo "tag=$SHORT_SHA" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Get short SHA
+      id: sha
+      run: |
+        SHORT_SHA=${GITHUB_SHA:0:8}
+        echo "short=$SHORT_SHA" >> $GITHUB_OUTPUT
+    
+    - name: Setup environment variables
+      run: |
+        echo "IMAGE_TAG=${{ steps.tag.outputs.tag }}" >> $GITHUB_ENV
+        echo "SHORT_SHA=${{ steps.sha.outputs.short }}" >> $GITHUB_ENV
+        echo "DEPLOYMENT_TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+
+  # ==================== ВАЛИДАЦИЯ КОДА ====================
+  code-validation:
+    name: Validate .NET Code
+    needs: setup
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Install dotnet-ef tool
+      run: |
+        dotnet tool install --global dotnet-ef
+        echo "${{ github.workspace }}" >> $GITHUB_PATH
+    
+    - name: Restore dependencies
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        dotnet restore ${{ env.SOLUTION_FILE }}
+    
+    - name: Build solution
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore
+    
+    - name: Run tests
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        dotnet test ${{ env.SOLUTION_FILE }} --configuration Release --no-build --verbosity normal
+    
+    - name: Code analysis
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        dotnet format --verify-no-changes
+        dotnet list ${{ env.SOLUTION_FILE }} package --vulnerable --include-transitive
+
+  # ==================== СБОРКА И ПУШ ОБРАЗА (.NET) ====================
+  build-and-push:
+    name: Build & Push .NET Image
+    needs: [setup, code-validation]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Configure Yandex Cloud CLI
+      uses: yandex-cloud/github-actions/setup-yc@v0.2.0
+      with:
+        service-account-key: ${{ env.YC_SERVICE_ACCOUNT_KEY }}
+    
+    - name: Log in to Yandex Container Registry
+      run: |
+        yc container registry configure-docker
+        echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY }}" | docker login \
+          --username json_key \
+          --password-stdin \
+          cr.yandex
+    
+    - name: Extract metadata for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: cr.yandex/${{ env.REGISTRY_ID }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=raw,value=${{ needs.setup.outputs.image_tag }}
+          type=raw,value=latest
+          type=sha,prefix={{branch}}-,format=short
+    
+    - name: Build and push Docker image (.NET 10)
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ env.DOTNET_PROJECT_PATH }}
+        file: ${{ env.DOTNET_PROJECT_PATH }}/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_CONFIGURATION=Release
+    
+    - name: Scan image for vulnerabilities
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'cr.yandex/${{ env.REGISTRY_ID }}/${{ env.IMAGE_NAME }}:${{ needs.setup.outputs.image_tag }}'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # ==================== МИГРАЦИИ БАЗЫ ДАННЫХ (.NET EF CORE) ====================
+  database-migrations:
+    name: Run EF Core Migrations
+    needs: [setup, build-and-push]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Configure Yandex Cloud CLI
+      uses: yandex-cloud/github-actions/setup-yc@v0.2.0
+      with:
+        service-account-key: ${{ env.YC_SERVICE_ACCOUNT_KEY }}
+    
+    - name: Get database connection details
+      id: db-info
+      run: |
+        DB_INFO=$(yc managed-postgresql cluster get ${{ env.DB_CLUSTER_ID }} --format json)
+        echo "host=$(echo $DB_INFO | jq -r '.hosts[0].name')" >> $GITHUB_OUTPUT
+        echo "port=6432" >> $GITHUB_OUTPUT
+        echo "username=$(echo $DB_INFO | jq -r '.config.userSettings.user')" >> $GITHUB_OUTPUT
+        echo "database=$(echo $DB_INFO | jq -r '.config.userSettings.database')" >> $GITHUB_OUTPUT
+    
+    - name: Download Yandex Cloud CA certificate
+      run: |
+        curl -s https://storage.yandexcloud.net/cloud-certs/CA.pem -o ca.pem
+    
+    - name: Generate EF Core migration bundle
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        
+        # Создаем bundle миграций
+        dotnet ef migrations bundle \
+          --project ${{ env.WEBAPI_PROJECT }} \
+          --configuration Release \
+          --output ./migrations-bundle
+        
+        chmod +x ./migrations-bundle
+    
+    - name: Run migrations via bundle
+      env:
+        DB_HOST: ${{ steps.db-info.outputs.host }}
+        DB_PORT: ${{ steps.db-info.outputs.port }}
+        DB_USER: ${{ steps.db-info.outputs.username }}
+        DB_PASSWORD: ${{ secrets.YC_DB_PASSWORD }}
+        DB_NAME: ${{ steps.db-info.outputs.database }}
+        CA_CERT_PATH: ${{ github.workspace }}/ca.pem
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        
+        # Создаем строку подключения с SSL
+        CONNECTION_STRING="Host=$DB_HOST;Port=$DB_PORT;Database=$DB_NAME;Username=$DB_USER;Password=$DB_PASSWORD;Ssl Mode=VerifyFull;Root Certificate=$CA_CERT_PATH"
+        
+        # Запускаем bundle миграций
+        ./migrations-bundle --connection "$CONNECTION_STRING"
+        
+        echo "✅ EF Core migrations completed"
+    
+    - name: Verify migrations
+      env:
+        DB_HOST: ${{ steps.db-info.outputs.host }}
+        DB_PORT: ${{ steps.db-info.outputs.port }}
+        DB_USER: ${{ steps.db-info.outputs.username }}
+        DB_PASSWORD: ${{ secrets.YC_DB_PASSWORD }}
+        DB_NAME: ${{ steps.db-info.outputs.database }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+        
+        PGPASSWORD=$DB_PASSWORD psql \
+          "host=$DB_HOST \
+           port=$DB_PORT \
+           dbname=$DB_NAME \
+           user=$DB_USER \
+           sslmode=verify-full \
+           sslrootcert=ca.pem" \
+          -c "SELECT version();"
+        
+        PGPASSWORD=$DB_PASSWORD psql \
+          "host=$DB_HOST \
+           port=$DB_PORT \
+           dbname=$DB_NAME \
+           user=$DB_USER \
+           sslmode=verify-full \
+           sslrootcert=ca.pem" \
+          -c "SELECT * FROM __EFMigrationsHistory ORDER BY MigrationId DESC LIMIT 5;"
+
+  # ==================== ДЕПЛОЙ В YANDEX CLOUD KUBERNETES ====================
+  deploy-to-production:
+    name: Deploy to Yandex Cloud (.NET)
+    needs: [setup, build-and-push, database-migrations]
+    runs-on: ubuntu-latest
+    
+    environment: production
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Configure Yandex Cloud CLI
+      uses: yandex-cloud/github-actions/setup-yc@v0.2.0
+      with:
+        service-account-key: ${{ env.YC_SERVICE_ACCOUNT_KEY }}
+    
+    - name: Get kubeconfig for Yandex Managed Kubernetes
+      run: |
+        yc managed-kubernetes cluster get-credentials \
+          ${{ env.K8S_CLUSTER_ID }} \
+          --external \
+          --force
+    
+    - name: Set kubectl context
+      run: |
+        kubectl config use-context yc-${{ env.K8S_CLUSTER_ID }}
+    
+    - name: Create namespace if not exists
+      run: |
+        kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+    
+    - name: Create or update ConfigMaps and Secrets
+      run: |
+        # Создаем ConfigMap с переменными окружения
+        kubectl create configmap testproject-config \
+          --from-literal=PROJECT_NAME=${{ env.PROJECT_NAME }} \
+          --from-literal=ENVIRONMENT=${{ env.ENVIRONMENT }} \
+          --from-literal=DEPLOYMENT_TIMESTAMP=${{ env.DEPLOYMENT_TIMESTAMP }} \
+          --from-literal=ASPNETCORE_ENVIRONMENT=Production \
+          --from-literal=ASPNETCORE_URLS=http://+:8080 \
+          --dry-run=client -o yaml | kubectl apply -f - -n ${{ env.K8S_NAMESPACE }}
+        
+        # Создаем Secret с паролями
+        kubectl create secret generic testproject-secrets \
+          --from-literal=DB_PASSWORD='${{ secrets.YC_DB_PASSWORD }}' \
+          --from-literal=JWT_SECRET='${{ secrets.PRODUCTION_JWT_SECRET }}' \
+          --from-literal=ConnectionStrings__DefaultConnection='Host=${{ secrets.YC_DB_HOST }};Port=6432;Database=${{ secrets.YC_DB_NAME }};Username=${{ secrets.YC_DB_USER }};Password=${{ secrets.YC_DB_PASSWORD }};Ssl Mode=Require;Trust Server Certificate=true' \
+          --dry-run=client -o yaml | kubectl apply -f - -n ${{ env.K8S_NAMESPACE }}
+    
+    - name: Deploy application with Kustomize
+      run: |
+        cd infra/k8s/overlays/prod
+        
+        # Обновляем image tag в kustomization.yaml
+        cat > kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ${{ env.K8S_NAMESPACE }}
+
+resources:
+  - ../../base/
+  - ../../base/namespace/
+  - ../../base/postgres/
+  - ../../base/networking/
+
+images:
+  - name: test-service
+    newName: cr.yandex/${{ env.REGISTRY_ID }}/${{ env.IMAGE_NAME }}
+    newTag: "${{ needs.setup.outputs.image_tag }}"
+
+patchesStrategicMerge:
+  - patch-managed-db.yaml
+  - ssl-patch.yaml
+
+configMapGenerator:
+  - name: test-service-config
+    behavior: merge
+    literals:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DEPLOYMENT_VERSION=${{ needs.setup.outputs.image_tag }}
+
+secretGenerator:
+  - name: test-service-secrets
+    behavior: merge
+    envs:
+      - .env.secret
+EOF
+        
+        # Применяем конфигурацию
+        kustomize build . | kubectl apply -f -
+    
+    - name: Wait for deployment to complete
+      run: |
+        kubectl rollout status deployment/test-service \
+          --timeout=300s \
+          -n ${{ env.K8S_NAMESPACE }}
+    
+    - name: Verify deployment (.NET)
+      run: |
+        # Проверяем поды
+        echo "=== Pods ==="
+        kubectl get pods -n ${{ env.K8S_NAMESPACE }} -l app=test-service -o wide
+        
+        # Проверяем сервис
+        echo -e "\n=== Services ==="
+        kubectl get svc -n ${{ env.K8S_NAMESPACE }} test-service
+        
+        # Проверяем health endpoints
+        echo -e "\n=== Health Checks ==="
+        kubectl run -i --rm --restart=Never test-curl \
+          --image=curlimages/curl:latest \
+          --namespace=${{ env.K8S_NAMESPACE }} \
+          --command -- \
+          sh -c '
+            echo "Testing /health..."
+            curl -f http://test-service.${{ env.K8S_NAMESPACE }}.svc.cluster.local:8080/health || exit 1
+            echo -e "\nTesting /health/ready..."
+            curl -f http://test-service.${{ env.K8S_NAMESPACE }}.svc.cluster.local:8080/health/ready || exit 1
+            echo -e "\nTesting /health/live..."
+            curl -f http://test-service.${{ env.K8S_NAMESPACE }}.svc.cluster.local:8080/health/live || exit 1
+          '
+        
+        # Проверяем логи
+        echo -e "\n=== Recent Logs ==="
+        kubectl logs -n ${{ env.K8S_NAMESPACE }} deployment/test-service --tail=20
+        
+        echo "✅ .NET Deployment verified successfully"
+    
+    - name: Create GitHub deployment
+      uses: actions/github-script@v6
+      if: success()
+      with:
+        script: |
+          const deployment = await github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: context.sha,
+            environment: '${{ env.ENVIRONMENT }}',
+            auto_merge: false,
+            required_contexts: [],
+            description: 'Deployment to Yandex Cloud Kubernetes (.NET 10)',
+            payload: {
+              version: '${{ needs.setup.outputs.image_tag }}',
+              timestamp: '${{ env.DEPLOYMENT_TIMESTAMP }}'
+            }
+          });
+          
+          const deploymentId = deployment.data.id;
+          
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: deploymentId,
+            state: 'success',
+            description: '.NET 10 deployment completed successfully',
+            environment_url: 'https://api.yourdomain.com', // Замените на ваш домен
+          });
+
+  # ==================== ИНТЕГРАЦИОННОЕ ТЕСТИРОВАНИЕ (.NET API) ====================
+  integration-tests:
+    name: Integration Tests (.NET API)
+    needs: deploy-to-production
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Configure Yandex Cloud CLI
+      uses: yandex-cloud/github-actions/setup-yc@v0.2.0
+      with:
+        service-account-key: ${{ env.YC_SERVICE_ACCOUNT_KEY }}
+    
+    - name: Get kubeconfig
+      run: |
+        yc managed-kubernetes cluster get-credentials \
+          ${{ env.K8S_CLUSTER_ID }} \
+          --external
+    
+    - name: Run API integration tests
+      run: |
+        # Создаем тестовый Job для проверки API
+        kubectl apply -f - <<EOF
+        apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: api-integration-tests-${{ needs.setup.outputs.short_sha }}
+          namespace: ${{ env.K8S_NAMESPACE }}
+        spec:
+          ttlSecondsAfterFinished: 300
+          template:
+            spec:
+              containers:
+              - name: api-test
+                image: curlimages/curl:latest
+                command: ["sh", "-c"]
+                args:
+                - |
+                  echo "Waiting for service to be ready..."
+                  for i in \$(seq 1 30); do
+                    if curl -f http://test-service.${{ env.K8S_NAMESPACE }}.svc.cluster.local:8080/health; then
+                      echo "Service is ready!"
+                      break
+                    fi
+                    echo "Attempt \$i: Service not ready yet..."
+                    sleep 5
+                  done
+                  
+                  # Проверяем основные эндпоинты API
+                  echo "Testing API endpoints..."
+                  
+                  # Health endpoints
+                  curl -f http://test-service.${{ env.K8S_NAMESPACE }}.svc.cluster.local:8080/health || exit 1
+                  curl -f http://test-service.${{ env.K8S_NAMESPACE }}.svc.cluster.local:8080/health/ready || exit 1
+                  
+                  # Swagger/OpenAPI
+                  curl -f http://test-service.${{ env.K8S_NAMESPACE }}.svc.cluster.local:8080/swagger/v1/swagger.json || exit 1
+                  
+                  # Ваши API endpoints (замените на ваши)
+                  # curl -f http://test-service.${{ env.K8S_NAMESPACE }}.svc.cluster.local:8080/api/v1/courses || exit 1
+                  # curl -f http://test-service.${{ env.K8S_NAMESPACE }}.svc.cluster.local:8080/api/v1/lessons || exit 1
+                  
+                  echo "✅ All API tests passed!"
+                env:
+                - name: SERVICE_URL
+                  value: http://test-service.${{ env.K8S_NAMESPACE }}.svc.cluster.local:8080
+              restartPolicy: Never
+          backoffLimit: 3
+        EOF
+        
+        # Ждем завершения Job
+        kubectl wait --for=condition=complete \
+          --timeout=300s \
+          job/api-integration-tests-${{ needs.setup.outputs.short_sha }} \
+          -n ${{ env.K8S_NAMESPACE }}
+        
+        # Получаем логи
+        echo "=== Test Logs ==="
+        kubectl logs job/api-integration-tests-${{ needs.setup.outputs.short_sha }} \
+          -n ${{ env.K8S_NAMESPACE }}
+    
+    - name: Cleanup test job
+      if: always()
+      run: |
+        kubectl delete job api-integration-tests-${{ needs.setup.outputs.short_sha }} \
+          -n ${{ env.K8S_NAMESPACE }} \
+          --ignore-not-found
+
+  # ==================== МОНИТОРИНГ И АЛЕРТЫ ====================
+  monitoring:
+    name: Setup Monitoring & Alerts
+    needs: deploy-to-production
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+    - name: Send deployment notification
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: |
+          :rocket: *Deployment Successful (.NET 10)*
+          • Project: ${{ env.PROJECT_NAME }}
+          • Environment: ${{ env.ENVIRONMENT }}
+          • Version: ${{ needs.setup.outputs.image_tag }}
+          • .NET: ${{ env.DOTNET_VERSION }}
+          • Commit: ${{ github.sha }}
+        fields: |
+          [
+            {"title": "Project", "value": "${{ env.PROJECT_NAME }}"},
+            {"title": "Environment", "value": "${{ env.ENVIRONMENT }}"},
+            {"title": ".NET Version", "value": "${{ env.DOTNET_VERSION }}"},
+            {"title": "Image Tag", "value": "${{ needs.setup.outputs.image_tag }}"},
+            {"title": "Commit", "value": "${{ github.sha }}"}
+          ]
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    
+    - name: Create Grafana annotation
+      uses: instantish/grafana-annotation-action@v1
+      with:
+        grafana_url: ${{ secrets.GRAFANA_URL }}
+        grafana_api_key: ${{ secrets.GRAFANA_API_KEY }}
+        tags: deployment,dotnet,testproject,${{ env.ENVIRONMENT }}
+        text: |
+          Deployment: ${{ env.PROJECT_NAME }} (.NET 10)
+          Version: ${{ needs.setup.outputs.image_tag }}
+          Environment: ${{ env.ENVIRONMENT }}
+          Commit: ${{ github.sha }}
+          Timestamp: ${{ env.DEPLOYMENT_TIMESTAMP }}
+
+  # ==================== ОТКАТ ПРИ НЕУДАЧЕ (.NET) ====================
+  rollback-on-failure:
+    name: Rollback on Failure (.NET)
+    needs: [deploy-to-production, integration-tests]
+    runs-on: ubuntu-latest
+    if: failure()
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Configure Yandex Cloud CLI
+      uses: yandex-cloud/github-actions/setup-yc@v0.2.0
+      with:
+        service-account-key: ${{ env.YC_SERVICE_ACCOUNT_KEY }}
+    
+    - name: Get kubeconfig
+      run: |
+        yc managed-kubernetes cluster get-credentials \
+          ${{ env.K8S_CLUSTER_ID }} \
+          --external
+    
+    - name: Rollback to previous version
+      run: |
+        # Откатываем deployment к предыдущей ревизии
+        kubectl rollout undo deployment/test-service \
+          -n ${{ env.K8S_NAMESPACE }}
+        
+        # Ждем завершения отката
+        kubectl rollout status deployment/test-service \
+          --timeout=300s \
+          -n ${{ env.K8S_NAMESPACE }}
+        
+        echo "✅ Rollback completed successfully"
+    
+    - name: Verify rollback
+      run: |
+        # Проверяем текущую версию
+        CURRENT_IMAGE=$(kubectl get deployment test-service -n ${{ env.K8S_NAMESPACE }} -o jsonpath='{.spec.template.spec.containers[0].image}')
+        echo "Current image after rollback: $CURRENT_IMAGE"
+        
+        # Проверяем health
+        kubectl run -i --rm --restart=Never test-rollback \
+          --image=curlimages/curl:latest \
+          --namespace=${{ env.K8S_NAMESPACE }} \
+          --command -- \
+          curl -f http://test-service.${{ env.K8S_NAMESPACE }}.svc.cluster.local:8080/health
+    
+    - name: Send rollback notification
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: |
+          :warning: *Deployment Failed - Rollback Initiated (.NET)*
+          • Project: ${{ env.PROJECT_NAME }}
+          • Environment: ${{ env.ENVIRONMENT }}
+          • Failed Version: ${{ needs.setup.outputs.image_tag }}
+          • Commit: ${{ github.sha }}
+          • Error: Check GitHub Actions logs
+        fields: |
+          [
+            {"title": "Project", "value": "${{ env.PROJECT_NAME }}"},
+            {"title": "Environment", "value": "${{ env.ENVIRONMENT }}"},
+            {"title": "Failed Version", "value": "${{ needs.setup.outputs.image_tag }}"},
+            {"title": "Status", "value": "Rolled back to previous version"}
+          ]
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

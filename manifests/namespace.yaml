@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: testproject-namespace
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: namespace
+    app.kubernetes.io/part-of: testproject
+    app.kubernetes.io/managed-by: kustomize
+    kubernetes.io/metadata.name: testproject-namespace
+  annotations:
+    description: "Пространство имен для проекта TestProject"
+    created-by: "kustomize"
+    openshift.io/description: "Пространство имен для микросервиса test-service"
+    openshift.io/display-name: "TestProject Namespace"
+    openshift.io/requester: "testproject-team"
+    openshift.io/sa.scc.mcs: "s0:c26,c20"
+    openshift.io/sa.scc.supplemental-groups: "1000690000/10000"
+    openshift.io/sa.scc.uid-range: "1000690000/10000"
+---
+# NetworkPolicy для изоляции трафика (опционально)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: testproject-network-policy
+  namespace: testproject-namespace
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: testproject
+  annotations:
+    description: "NetworkPolicy для изоляции трафика в namespace TestProject"
+spec:
+  podSelector: {}  # Применяется ко всем подам в namespace
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Разрешаем трафик из любого пода в том же namespace
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 4000  # Порт test-service
+        - protocol: TCP
+          port: 5432  # Порт PostgreSQL
+        - protocol: TCP
+          port: 6379  # Порт Redis
+    
+    # Разрешаем трафик из namespace kube-system (для мониторинга и т.д.)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+    
+    # Разрешаем трафик из namespace monitoring (если есть)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+    
+    # Разрешаем трафик из ingress-контроллера
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+  
+  egress:
+    # Разрешаем исходящий трафик везде (можно ограничить при необходимости)
+    - {}

@@ -1,0 +1,83 @@
+Объяснение каждого компонента:
+1. Namespace
+Создает пространство имен testproject-namespace
+
+Добавлены метки и аннотации для организации и управления
+
+Поддержка service mesh (Linkerd/Istio) и мониторинга
+
+2. ResourceQuota
+Ограничивает общее потребление ресурсов в namespace
+
+Защищает кластер от исчерпания ресурсов одним приложением
+
+Контролирует CPU, memory, storage, количество объектов
+
+3. LimitRange
+Устанавливает лимиты по умолчанию для контейнеров
+
+Автоматически применяет лимиты к контейнерам без явного указания
+
+Защищает от контейнеров с чрезмерными требованиями
+
+4. NetworkPolicy
+default-deny-all: Запрещает весь трафик по умолчанию (zero-trust)
+
+allow-namespace-internal: Разрешает трафик внутри namespace
+
+allow-ingress: Разрешает входящий трафик от ingress контроллера
+
+5. ServiceAccount
+Учетная запись для подов в namespace
+
+Может быть привязана к IAM ролям в облачных провайдерах
+
+Автоматическое монтирование токена
+
+6. PodSecurityPolicy (устарело в Kubernetes 1.25, используйте Pod Security Admission)
+Определяет политики безопасности для подов
+
+Запрещает привилегированные контейнеры
+
+Требует запуск от непривилегированного пользователя
+
+7. PriorityClass
+Управляет приоритетом планирования подов
+
+Полезно для критичных приложений
+
+8. PodDisruptionBudget
+Гарантирует минимальную доступность приложения
+
+Защищает от добровольных нарушений работы (обновления узлов)
+
+Использование:
+Применить namespace и все ресурсы:
+
+bash
+kubectl apply -f infra/k8s/base/namespace/
+Проверить созданные ресурсы:
+
+bash
+kubectl get all -n testproject-namespace
+kubectl describe namespace testproject-namespace
+kubectl get resourcequota -n testproject-namespace
+kubectl get limitrange -n testproject-namespace
+Для продакшена дополнительно настройте:
+
+Pod Security Admission (вместо PodSecurityPolicy)
+
+Network Policies для конкретных приложений
+
+Resource Quotas в зависимости от требований
+
+Service Mesh политики безопасности
+
+Примечания:
+PodSecurityPolicy устарела в Kubernetes 1.25+, используйте Pod Security Admission
+
+Настройте Network Policies в соответствии с архитектурой вашего приложения
+
+Resource Quotas должны соответствовать выделенным ресурсам кластера
+
+Для продакшена рассмотрите использование GitOps инструментов (Flux/ArgoCD)

@@ -1,0 +1,90 @@
+# ============= ОКРУЖЕНИЕ И СЕКРЕТЫ =============
+.env
+*.env.local
+pgadmin_data/
+.env.development.local
+.env.test.local
+.env.production.local
+.env.prod
+secrets/
+*.pem
+*.key
+*.crt
+kubeconfig
+.kube/
+
+# ============= ЗАВИСИМОСТИ =============
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ============= СБОРКА И ДИСТРИБУТИВЫ =============
+dist/
+build/
+out/
+coverage/
+.nyc_output/
+
+# ============= РЕДАКТОРЫ И IDE =============
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ============= DOCKER =============
+docker-data/
+docker-volumes/
+!docker-compose.yaml
+.docker/
+
+# ============= ОПЕРАЦИОННЫЕ СИСТЕМЫ =============
+*.log
+logs/
+tmp/
+temp/
+
+# ============= KUBERNETES =============
+*.kubeconfig
+.kube/
+manifests/.temp/
+
+# ============= TERRAFORM =============
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfstate.*.backup
+*.tfvars
+.terraform.tfstate.lock.info
+.terraform.lock.hcl
+
+# ============= БЭКАПЫ БАЗЫ ДАННЫХ =============
+*.sql.gz
+backup*.sql
+*.dump
+
+# ============= ТЕСТЫ И ОТЧЕТЫ =============
+test-results/
+reports/
+*.junit
+*.xml
+*.trx
+
+# ============= РАЗНОЕ =============
+.cache/
+dump.rdb
+*.pid
+*.seed
+*.pid.lock

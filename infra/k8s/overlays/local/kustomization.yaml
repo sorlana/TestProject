@@ -1,0 +1,103 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Базовый путь к ресурсам
+resources:
+  - ../../base/namespace/
+  - ../../base/postgres/
+  - ../../base/networking/
+  - ../../base/monitoring/
+  - ../../../manifests/
+
+# Генераторы для локальной среды
+secretGenerator:
+  - name: test-service-secrets
+    namespace: testproject-namespace
+    behavior: merge
+    envs:
+      - .env.local.secret
+    options:
+      disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: test-service-config
+    namespace: testproject-namespace
+    behavior: merge
+    literals:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_ENVIRONMENT=Development
+      - DOTNET_CLI_TELEMETRY_OPTOUT=1
+      - DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1
+      - Logging__Console__FormatterName=Simple
+      - Logging__Console__FormatterOptions__IncludeScopes=true
+      - Logging__Console__FormatterOptions__TimestampFormat=HH:mm:ss
+      - Serilog__MinimumLevel__Default=Debug
+      - Serilog__MinimumLevel__Override__Microsoft=Information
+      - Serilog__MinimumLevel__Override__System=Information
+      - AppSettings__ApiTitle=TestService (Local - Docker Desktop)
+      - AppSettings__ApiDescription=Local Development Environment with Docker Desktop Kubernetes
+      - AppSettings__EnableSwagger=true
+      - AppSettings__EnableDetailedErrors=true
+      - AppSettings__EnableDeveloperExceptionPage=true
+      - Cors__AllowedOrigins=http://localhost:3000,http://localhost:8080,http://localhost:5000,http://localhost
+      - Cors__AllowCredentials=true
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=testdb;Username=postgres;Password=localdev123;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20
+      - Database__Provider=PostgreSQL
+      - Database__EnableSensitiveDataLogging=true
+      - Database__EnableDetailedErrors=true
+      - HealthChecks__Endpoint=/health
+      - HealthChecks__UIEndpoint=/health-ui
+      - Kestrel__Endpoints__Http__Url=http://*:8080
+
+# Патчи для Docker Desktop
+patchesStrategicMerge:
+  - patch-postgres.yaml
+  - patch-app.yaml
+  - patch-ingress.yaml
+  - patch-service.yaml
+
+# Изменение образа для локальной разработки
+images:
+  - name: test-service
+    newName: test-service-local
+    newTag: latest
+
+# Настройка namespace
+namespace: testproject-namespace
+
+# Общие метки для всех ресурсов
+commonLabels:
+  environment: local
+  deployment: docker-desktop
+  kubernetes-platform: docker-desktop
+  managed-by: kustomize-local
+
+# Аннотации
+commonAnnotations:
+  deployed-by: "kustomize-docker-desktop-overlay"
+  deployment-timestamp: "2024-01-01T00:00:00Z"
+  note: "Локальное окружение для разработки с Docker Desktop Kubernetes"
+  kubernetes.io/ingress.class: "nginx"
+
+# Сортировка ресурсов для правильного применения
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - clusterrole.yaml
+  - clusterrolebinding.yaml
+  - configmap.yaml
+  - secret.yaml
+  - statefulset.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - networkpolicy.yaml
+  - servicemonitor.yaml
+  - podmonitor.yaml
+
+# Настройки генераторов
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    environment: local
+    kubernetes-platform: docker-desktop

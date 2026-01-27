@@ -1,0 +1,325 @@
+# Патч для настройки SSL/TLS в продакшене
+---
+# Обновляем Ingress для использования production SSL сертификатов
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test-project-ingress
+  namespace: testproject-namespace-prod
+  labels:
+    app: test-project
+    component: ingress
+    environment: production
+    ssl: enabled
+    tls-version: "1.3"
+  annotations:
+    # Аннотации для cert-manager (Let's Encrypt production)
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/acme-challenge-type: "http01"
+    cert-manager.io/acme-dns01-provider: "cloudflare"
+    
+    # Безопасность SSL/TLS
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384"
+    nginx.ingress.kubernetes.io/ssl-prefer-server-ciphers: "true"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-session-tickets: "false"
+    nginx.ingress.kubernetes.io/ssl-session-timeout: "10m"
+    
+    # HSTS (HTTP Strict Transport Security)
+    nginx.ingress.kubernetes.io/hsts: "true"
+    nginx.ingress.kubernetes.io/hsts-max-age: "31536000"
+    nginx.ingress.kubernetes.io/hsts-include-subdomains: "true"
+    nginx.ingress.kubernetes.io/hsts-preload: "true"
+    
+    # Безопасные заголовки
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      # Security headers
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload";
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+      more_set_headers "Permissions-Policy: geolocation=(), microphone=(), camera=()";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      
+      # Rate limiting для production
+      limit_req_zone $binary_remote_addr zone=api:10m rate=100r/m;
+      limit_req zone=api burst=10 nodelay;
+      
+      # Логирование
+      access_log /var/log/nginx/access.log json_combined buffer=32k flush=5s;
+      error_log /var/log/nginx/error.log warn;
+    
+    # Аннотации для Yandex Cloud
+    yandex.cloud/load-balancer-type: "external"
+    yandex.cloud/network-load-balancer-name: "testproject-nlb"
+    yandex.cloud/load-balancer-protocol: "tcp"
+    yandex.cloud/load-balancer-port: "443"
+    yandex.cloud/load-balancer-target-port: "443"
+    yandex.cloud/load-balancer-health-check-port: "80"
+    yandex.cloud/load-balancer-health-check-path: "/health"
+    
+    # WAF настройки (если используется)
+    yandex.cloud/waf-profile: "owasp-crs"
+    yandex.cloud/waf-mode: "detection"
+    
+    # DDoS защита
+    yandex.cloud/ddos-protection: "standard"
+    
+    # CDN (если используется)
+    yandex.cloud/cdn-enabled: "true"
+    yandex.cloud/cdn-cache-ttl: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - testproject.com
+    - api.testproject.com
+    - app.testproject.com
+    - www.testproject.com
+    secretName: testproject-tls-production
+    options:
+      # Настройки cipher suites
+      ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305"
+      protocols: "TLSv1.2 TLSv1.3"
+  rules:
+  - host: api.testproject.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: test-service
+            port:
+              number: 8080
+        path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: test-service
+            port:
+              number: 8080
+        path: /metrics
+        pathType: Exact
+        backend:
+          service:
+            name: test-service
+            port:
+              number: 8080
+  - host: testproject.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: test-service
+            port:
+              number: 8080
+  - host: app.testproject.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: test-service
+            port:
+              number: 8080
+
+# Создаем Secret для production TLS сертификатов (будет управляться cert-manager)
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: testproject-tls-production
+  namespace: testproject-namespace-prod
+  labels:
+    app: test-project
+    component: tls
+    environment: production
+    cert-manager.io/certificate-name: "testproject-production-tls"
+type: kubernetes.io/tls
+data:
+  # Эти данные будут автоматически заполнены cert-manager
+  tls.crt: ${TLS_CRT}
+  tls.key: ${TLS_KEY}
+
+# Issuer для Let's Encrypt production
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  namespace: cert-manager
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: ${LETSENCRYPT_EMAIL}
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+          podTemplate:
+            spec:
+              nodeSelector:
+                kubernetes.io/os: linux
+              tolerations:
+              - key: "node-role.kubernetes.io/master"
+                operator: "Exists"
+                effect: "NoSchedule"
+    - dns01:
+        cloudflare:
+          email: ${CLOUDFLARE_EMAIL}
+          apiKeySecretRef:
+            name: cloudflare-api-key
+            key: api-key
+
+# Certificate resource для автоматического получения сертификатов
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: testproject-production-tls
+  namespace: testproject-namespace-prod
+spec:
+  secretName: testproject-tls-production
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  duration: 2160h # 90 дней
+  renewBefore: 720h # 30 дней до истечения
+  commonName: testproject.com
+  dnsNames:
+  - testproject.com
+  - api.testproject.com
+  - app.testproject.com
+  - www.testproject.com
+  - "*.testproject.com"
+  usages:
+    - server auth
+    - client auth
+  keySize: 4096
+  keyAlgorithm: rsa
+  keyEncoding: PKCS8
+
+# ExternalDNS для автоматического управления DNS записями
+---
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: testproject-dns-endpoints
+  namespace: testproject-namespace-prod
+spec:
+  endpoints:
+  - dnsName: testproject.com
+    recordTTL: 300
+    recordType: A
+    targets:
+    - ${LOAD_BALANCER_IP}
+  - dnsName: api.testproject.com
+    recordTTL: 300
+    recordType: A
+    targets:
+    - ${LOAD_BALANCER_IP}
+  - dnsName: app.testproject.com
+    recordTTL: 300
+    recordType: A
+    targets:
+    - ${LOAD_BALANCER_IP}
+  - dnsName: "*.testproject.com"
+    recordTTL: 300
+    recordType: CNAME
+    targets:
+    - testproject.com
+
+# NetworkPolicy для ограничения трафика только по HTTPS
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-only-https
+  namespace: testproject-namespace-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: test-service
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+
+# Обновляем Service для поддержки SSL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-service
+  namespace: testproject-namespace-prod
+spec:
+  type: ClusterIP
+  ports:
+  - name: https
+    port: 443
+    targetPort: 8080
+    protocol: TCP
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: test-service
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+
+# ConfigMap с настройками SSL для приложения
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ssl-config
+  namespace: testproject-namespace-prod
+data:
+  ssl-config.json: |
+    {
+      "ssl": {
+        "enabled": true,
+        "requireSsl": true,
+        "redirectHttpToHttps": true,
+        "hsts": {
+          "enabled": true,
+          "maxAge": 31536000,
+          "includeSubDomains": true,
+          "preload": true
+        },
+        "certificates": {
+          "source": "kubernetes-secret",
+          "secretName": "testproject-tls-production"
+        },
+        "ciphers": [
+          "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+          "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+          "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+          "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+          "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
+        ],
+        "protocols": ["TLSv1.2", "TLSv1.3"],
+        "sessionTickets": false,
+        "sessionTimeout": "10m",
+        "ocspStapling": true
+      }
+    }

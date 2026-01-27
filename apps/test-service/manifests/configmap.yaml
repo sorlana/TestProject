@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-service-config
+  namespace: testproject-namespace
+  labels:
+    app: test-service
+data:
+  # ASP.NET Core настройки
+  ASPNETCORE_ENVIRONMENT: "Production"
+  ASPNETCORE_URLS: "http://+:8080"
+  DOTNET_RUNNING_IN_CONTAINER: "true"
+  DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "false"
+  
+  # Логирование
+  Serilog__MinimumLevel__Default: "Information"
+  Serilog__MinimumLevel__Override__Microsoft: "Warning"
+  Serilog__MinimumLevel__Override__System: "Warning"
+  Serilog__MinimumLevel__Override__Microsoft.AspNetCore: "Warning"
+  Serilog__WriteTo__0__Name: "Console"
+  Serilog__WriteTo__0__Args__outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}"
+  
+  # Настройки приложения
+  AppSettings__Name: "Test Service API"
+  AppSettings__Version: "1.0.0"
+  AppSettings__ApiTitle: "Test Project API"
+  AppSettings__ApiDescription: "API для управления учебными курсами и уроками"
+  AppSettings__ContactName: "Support Team"
+  AppSettings__ContactEmail: "support@testproject.com"
+  AppSettings__ContactUrl: "https://testproject.com/support"
+  
+  # Настройки базы данных (без паролей)
+  Database__Provider: "PostgreSQL"
+  Database__MaxRetryCount: "3"
+  Database__MaxRetryDelaySeconds: "30"
+  Database__EnableDetailedErrors: "false"
+  Database__EnableSensitiveDataLogging: "false"
+  
+  # Кэширование
+  Cache__DefaultCacheDurationMinutes: "5"
+  Cache__LongTermCacheDurationHours: "24"
+  
+  # Пагинация
+  Pagination__DefaultPageSize: "20"
+  Pagination__MaxPageSize: "100"
+  
+  # Upload файлов
+  FileUpload__MaxFileSizeMB: "10"
+  FileUpload__AllowedExtensions: ".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
+  FileUpload__StoragePath: "/app/uploads"
+  
+  # Валидация
+  Validation__MaxStringLength: "500"
+  Validation__MaxCollectionSize: "100"
+  
+  # Корсы (разрешённые домены)
+  Cors__AllowedOrigins__0: "https://localhost:3000"
+  Cors__AllowedOrigins__1: "https://app.testproject.com"
+  Cors__AllowedMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  Cors__AllowedHeaders: "Content-Type,Authorization,X-Requested-With,X-API-Key"
+  Cors__AllowCredentials: "true"
+  Cors__MaxAge: "600"
+  
+  # Rate limiting
+  RateLimiting__Enabled: "true"
+  RateLimiting__PermitLimit: "100"
+  RateLimiting__WindowInSeconds: "60"
+  RateLimiting__QueueLimit: "2"
+  
+  # Health checks
+  HealthChecks__Endpoint: "/health"
+  HealthChecks__UIEndpoint: "/health-ui"
+  HealthChecks__EvaluationTimeInSeconds: "30"
+  HealthChecks__MinimumSecondsBetweenFailureNotifications: "60"
+  
+  # OpenTelemetry метрики
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_RESOURCE_ATTRIBUTES: "service.name=test-service,service.version=1.0.0"
+  OTEL_SERVICE_NAME: "test-service"
+---
+# ConfigMap для init-скриптов базы данных
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-service-init-scripts
+  namespace: testproject-namespace
+  labels:
+    app: test-service
+data:
+  init-database.sql: |
+    -- Создание дополнительных схем если нужно
+    CREATE SCHEMA IF NOT EXISTS app;
+    CREATE SCHEMA IF NOT EXISTS audit;
+    
+    -- Создание расширений
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+    
+    -- Предоставление прав
+    GRANT USAGE ON SCHEMA app TO app_user;
+    GRANT USAGE ON SCHEMA audit TO app_user;
+    
+    -- Комментарии
+    COMMENT ON SCHEMA app IS 'Основная схема приложения';
+    COMMENT ON SCHEMA audit IS 'Схема для аудита изменений';
+    
+    ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA audit GRANT SELECT ON TABLES TO app_user;
+    
+  seed-data.sql: |
+    -- Пример данных для начальной загрузки
+    INSERT INTO public."__EFMigrationsHistory" (MigrationId, ProductVersion)
+    VALUES 
+      ('20240101000000_Initial', '8.0.0'),
+      ('20240101000001_SeedData', '8.0.0')
+    ON CONFLICT (MigrationId) DO NOTHING;
+    
+    -- Ваши начальные данные
+    -- INSERT INTO app.Courses (Id, Name, Description, CreatedAt) VALUES ...

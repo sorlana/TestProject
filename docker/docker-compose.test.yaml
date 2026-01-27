@@ -1,0 +1,166 @@
+version: '3.8'
+
+# ============= СЕТИ =============
+networks:
+  test-microservices-test:
+    driver: bridge
+    name: test-microservices-test
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+
+# ============= СЕРВИСЫ =============
+services:
+  # ==================== POSTGRESQL (ТЕСТОВАЯ БАЗА) ====================
+  postgres-test-db:
+    container_name: postgres-test-db
+    image: postgres:15-alpine
+    restart: on-failure
+    ports:
+      - "5434:5432"
+    
+    environment:
+      POSTGRES_DB: testdb_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    
+    networks:
+      - test-microservices-test
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d testdb_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c max_connections=100
+      -c fsync=off
+      -c synchronous_commit=off
+      -c full_page_writes=off
+      -c log_min_messages=panic
+      -c log_statement=none
+    
+    logging:
+      driver: "none"
+
+  # ==================== TEST SERVICE (ТЕСТОВЫЙ РЕЖИМ) ====================
+  test-service-test:
+    container_name: test-service-test
+    build:
+      context: ../apps/test-service
+      dockerfile: Dockerfile.test
+      args:
+        - NODE_ENV=test
+    restart: on-failure
+    
+    ports: []
+    
+    environment:
+      # Основные настройки
+      NODE_ENV: test
+      PORT: 4001
+      LOG_LEVEL: error
+      API_PREFIX: /api/v1
+      
+      # База данных
+      DB_HOST: postgres-test-db
+      DB_PORT: 5432
+      DB_NAME: testdb_test
+      DB_USER: test_user
+      DB_PASSWORD: test123
+      DB_SSL: "false"
+      
+      # Тестовые настройки
+      JWT_SECRET: test_jwt_secret_for_testing_only
+      JWT_EXPIRES_IN: 1h
+      CORS_ORIGIN: "*"
+      
+      # Отладка
+      NODE_OPTIONS: "--max-old-space-size=512"
+      
+      # Тестовые флаги
+      RUN_TESTS: "true"
+      TEST_TIMEOUT: "30000"
+      TEST_WATCH: "false"
+    
+    volumes:
+      - ../apps/test-service:/app:ro
+      - ./test-results:/app/test-results
+      - /app/node_modules
+    
+    networks:
+      - test-microservices-test
+    
+    depends_on:
+      postgres-test-db:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "1"
+    
+    command: >
+      sh -c "
+        echo '🧪 Setting up test environment for Test Service...' &&
+        npm ci --only=development &&
+        echo '🚀 Starting tests...' &&
+        npm test -- --coverage --verbose --testTimeout=30000
+      "
+
+  # ==================== TEST RUNNER (ДЛЯ ИНТЕГРАЦИОННЫХ ТЕСТОВ) ====================
+  test-service-runner:
+    container_name: test-service-runner
+    image: node:18-alpine
+    restart: "no"
+    
+    working_dir: /app
+    
+    environment:
+      NODE_ENV: test
+      DB_HOST: postgres-test-db
+      DB_PORT: 5432
+      DB_NAME: testdb_test
+      DB_USER: test_user
+      DB_PASSWORD: test123
+      SERVICE_URL: http://test-service-test:4001
+    
+    volumes:
+      - ../apps/test-service:/app
+      - ./test-results:/app/test-results
+    
+    networks:
+      - test-microservices-test
+    
+    depends_on:
+      - postgres-test-db
+      - test-service-test
+    
+    command: >
+      sh -c "
+        echo '🔄 Waiting for Test Service to be ready...' &&
+        timeout 60 bash -c 'until curl -f http://test-service-test:4001/health/ready; do sleep 2; done' &&
+        echo '✅ Test Service is ready!' &&
+        echo '🧪 Running integration tests...' &&
+        cd /app &&
+        npm run test:integration -- --verbose
+      "
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "1"

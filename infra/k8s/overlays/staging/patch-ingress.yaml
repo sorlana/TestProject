@@ -1,0 +1,43 @@
+# Патч для Ingress в staging
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test-project-ingress
+  namespace: testproject-namespace-staging
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"  # В staging может быть false
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://staging.testproject.com"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Environment: Staging";
+      more_set_headers "X-Staging: true";
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"  # Staging issuer
+spec:
+  tls:
+  - hosts:
+    - api.staging.testproject.com
+    - staging.testproject.com
+    secretName: test-project-tls-staging
+  rules:
+  - host: api.staging.testproject.com
+    http:
+      paths:
+      - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: test-service
+            port:
+              number: 8080
+  - host: staging.testproject.com
+    http:
+      paths:
+      - path: /()
+        pathType: Prefix
+        backend:
+          service:
+            name: test-service
+            port:
+              number: 8080

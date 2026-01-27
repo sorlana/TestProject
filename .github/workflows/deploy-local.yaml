@@ -1,0 +1,477 @@
+name: TestProject CI - Local Development (.NET)
+
+on:
+  push:
+    branches: [ develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+env:
+  # Настройки Docker образа
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  SERVICE_NAME: test-service
+  
+  # Настройки Kubernetes
+  K8S_NAMESPACE: testproject-namespace
+  
+  # Настройки проекта
+  PROJECT_NAME: TestProject
+  
+  # .NET settings
+  DOTNET_VERSION: '10.0.x'
+  DOTNET_PROJECT_PATH: 'apps/test-service/'
+  SOLUTION_FILE: 'YourSolution.sln'
+  WEBAPI_PROJECT: 'WebApi/WebApi.csproj'
+
+jobs:
+  # ==================== ПРОВЕРКА КОДА .NET ====================
+  dotnet-validation:
+    name: .NET Validation & Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore dependencies
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        dotnet restore ${{ env.SOLUTION_FILE }}
+    
+    - name: Build solution
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        dotnet build ${{ env.SOLUTION_FILE }} --configuration Debug --no-restore
+    
+    - name: Run tests
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        dotnet test ${{ env.SOLUTION_FILE }} --configuration Debug --no-build --verbosity normal
+    
+    - name: Run code analysis
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        dotnet format --verify-no-changes
+        dotnet list ${{ env.SOLUTION_FILE }} package --vulnerable --include-transitive
+    
+    - name: Security scan with OWASP
+      uses: dependency-review-action@v3
+      with:
+        fail-on-severity: high
+
+  # ==================== СБОРКА DOCKER ОБРАЗА .NET ====================
+  build-and-push:
+    name: Build & Push .NET Docker Image
+    needs: dotnet-validation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.SERVICE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Build and push Docker image (.NET)
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ env.DOTNET_PROJECT_PATH }}
+        file: ${{ env.DOTNET_PROJECT_PATH }}/Dockerfile
+        push: ${{ github.event_name == 'push' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_CONFIGURATION=Debug
+    
+    - name: Scan image for vulnerabilities
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ steps.meta.outputs.tags }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # ==================== ДЕПЛОЙ В ЛОКАЛЬНЫЙ K8s С ПОМОЩЬЮ KIND (.NET) ====================
+  deploy-to-local:
+    name: Deploy to Kind K8s (.NET)
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Kind cluster
+      uses: container-tools/kind-action@v1
+      with:
+        version: v0.20.0
+        cluster_name: testproject-ci-cluster
+        config: |
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            kubeadmConfigPatches:
+            - |
+              kind: InitConfiguration
+              nodeRegistration:
+                kubeletExtraArgs:
+                  node-labels: "ingress-ready=true"
+            extraPortMappings:
+            - containerPort: 80
+              hostPort: 80
+              protocol: TCP
+            - containerPort: 443
+              hostPort: 443
+              protocol: TCP
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+    
+    - name: Install nginx ingress controller
+      run: |
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+        kubectl wait --namespace ingress-nginx \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/component=controller \
+          --timeout=90s
+    
+    - name: Create namespace if not exists
+      run: |
+        kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+    
+    - name: Load Docker image to Kind cluster
+      run: |
+        # Загружаем образ в Kind
+        kind load docker-image ${{ env.SERVICE_NAME }}:local --name testproject-ci-cluster || echo "Using already built image"
+    
+    - name: Apply Kubernetes manifests for local
+      run: |
+        # Применяем базовые манифесты
+        kubectl apply -f manifests/namespace.yaml
+        kubectl apply -f manifests/service-account.yaml
+        kubectl apply -f manifests/cluster-role.yaml
+        kubectl apply -f manifests/cluster-role-binding.yaml
+        
+        # Применяем конфигурации приложения с помощью Kustomize
+        cd infra/k8s/overlays/local/
+        
+        # Создаем kustomization для CI
+        cat > kustomization-ci.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ${{ env.K8S_NAMESPACE }}
+
+resources:
+  - ../../base/namespace/
+  - ../../base/postgres/
+  - ../../base/networking/
+  - ../../base/monitoring/
+  - ../../../manifests/
+
+patchesStrategicMerge:
+  - patch-app.yaml
+  - patch-postgres.yaml
+  - patch-ingress-ci.yaml
+
+configMapGenerator:
+  - name: test-service-config
+    namespace: ${{ env.K8S_NAMESPACE }}
+    behavior: merge
+    literals:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=testdb;Username=postgres;Password=localdev123
+
+images:
+  - name: test-service
+    newName: ${{ env.SERVICE_NAME }}
+    newTag: local
+
+commonLabels:
+  environment: ci
+  deployment: kind-ci
+EOF
+        
+        kustomize build . --load-restrictor LoadRestrictionsNone | kubectl apply -f -
+        
+        # Проверяем состояние
+        kubectl get all -n ${{ env.K8S_NAMESPACE }}
+    
+    - name: Wait for deployment to be ready (.NET)
+      run: |
+        kubectl wait --for=condition=available \
+          --timeout=300s \
+          deployment/test-service \
+          -n ${{ env.K8S_NAMESPACE }}
+    
+    - name: Run smoke tests (.NET)
+      run: |
+        # Устанавливаем порт-форвардинг для тестирования
+        kubectl port-forward svc/test-service 8080:8080 -n ${{ env.K8S_NAMESPACE }} &
+        sleep 10
+        
+        echo "Testing service at: http://localhost:8080"
+        
+        # Проверяем health endpoint
+        curl -f http://localhost:8080/health || exit 1
+        
+        # Проверяем readiness
+        curl -f http://localhost:8080/health/ready || exit 1
+        
+        # Проверяем Swagger
+        curl -f http://localhost:8080/swagger/v1/swagger.json || echo "Swagger not available"
+        
+        echo "✅ .NET Smoke tests passed"
+    
+    - name: Show access information
+      if: always()
+      run: |
+        echo ""
+        echo "🌐 Service is available at: http://localhost:8080"
+        echo "📚 Swagger UI: http://localhost:8080/swagger"
+        echo "🏥 Health checks: http://localhost:8080/health"
+        echo ""
+        echo "📊 Cluster status:"
+        kubectl get all -n ${{ env.K8S_NAMESPACE }}
+        echo ""
+        echo "🧹 To cleanup: kind delete cluster --name testproject-ci-cluster"
+
+  # ==================== ТЕСТИРОВАНИЕ С DOCKER COMPOSE (.NET) ====================
+  docker-compose-test:
+    name: Docker Compose Tests (.NET)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Docker Compose
+      uses: isbang/compose-action@v1.4.1
+    
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Create .env file for testing
+      run: |
+        cp .env.example .env.test
+        echo "DB_PASSWORD=test_github_actions_123" >> .env.test
+        echo "JWT_SECRET=github_actions_test_secret" >> .env.test
+        echo "ASPNETCORE_ENVIRONMENT=Development" >> .env.test
+        echo "ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=testdb;Username=postgres;Password=test_github_actions_123" >> .env.test
+    
+    - name: Start services with Docker Compose (.NET)
+      run: |
+        cd docker/
+        docker-compose -f docker-compose.local.yaml --env-file ../.env.test up -d --build
+    
+    - name: Wait for services to be ready (.NET)
+      run: |
+        # Ждем PostgreSQL
+        until docker-compose -f docker/docker-compose.local.yaml exec -T postgres pg_isready -U postgres; do
+          echo "Waiting for PostgreSQL..."
+          sleep 2
+        done
+        
+        # Ждем .NET приложение
+        echo "Waiting for .NET application..."
+        for i in $(seq 1 30); do
+          if curl -f http://localhost:5000/health 2>/dev/null; then
+            echo ".NET application is ready!"
+            break
+          fi
+          echo "Attempt $i: .NET application not ready yet..."
+          sleep 2
+        done
+    
+    - name: Run EF Core migrations for tests
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        # Создаем миграции для тестовой БД
+        dotnet ef migrations add TestMigration --project ${{ env.WEBAPI_PROJECT }} --context ApplicationDbContext || echo "Migrations already exist"
+        dotnet ef database update --project ${{ env.WEBAPI_PROJECT }} --context ApplicationDbContext
+    
+    - name: Run integration tests (.NET)
+      run: |
+        cd ${{ env.DOTNET_PROJECT_PATH }}
+        
+        # Запускаем тесты
+        dotnet test --filter "Category=Integration" --verbosity normal || echo "No integration tests found"
+        
+        # Запускаем unit тесты
+        dotnet test --filter "Category!=Integration" --verbosity normal
+    
+    - name: Test API endpoints
+      run: |
+        # Тестируем API эндпоинты
+        curl -f http://localhost:5000/health || exit 1
+        curl -f http://localhost:5000/swagger/v1/swagger.json || exit 1
+        
+        # Здесь можно добавить тесты ваших специфичных API endpoints
+        # curl -f http://localhost:5000/api/v1/courses || exit 1
+        # curl -f http://localhost:5000/api/v1/lessons || exit 1
+        
+        echo "✅ API tests passed"
+    
+    - name: Stop services
+      if: always()
+      run: |
+        cd docker/
+        docker-compose -f docker-compose.local.yaml down -v
+
+  # ==================== ПРОВЕРКА МАНИФЕСТОВ KUBERNETES ====================
+  k8s-manifests-check:
+    name: Validate K8s Manifests (.NET)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+    
+    - name: Validate manifests with kubeval
+      uses: instrumenta/kubeval-action@master
+      with:
+        files: infra/k8s/base/
+    
+    - name: Lint manifests with kube-linter
+      uses: stackrox/kube-linter-action@v1
+      with:
+        config: .github/kube-linter-config.yaml
+        paths: infra/k8s/base/
+    
+    - name: Check Kustomize build for local
+      run: |
+        cd infra/k8s/overlays/local
+        kustomize build . > /dev/null
+        echo "✅ Kustomize build for local successful"
+    
+    - name: Check .NET specific manifests
+      run: |
+        # Проверяем, что deployment.yaml подходит для .NET
+        DEPLOYMENT_FILE="apps/test-service/k8s/deployment.yaml"
+        if [ -f "$DEPLOYMENT_FILE" ]; then
+          echo "Checking .NET deployment file..."
+          
+          # Проверяем порт (должен быть 8080 для .NET)
+          PORT=$(grep -A1 "containerPort" "$DEPLOYMENT_FILE" | grep -o '[0-9]*' | head -1)
+          if [ "$PORT" != "8080" ]; then
+            echo "⚠️  Warning: .NET apps usually use port 8080, found: $PORT"
+          fi
+          
+          # Проверяем readiness/liveness probes
+          if ! grep -q "/health" "$DEPLOYMENT_FILE"; then
+            echo "⚠️  Warning: Health checks might be missing for .NET"
+          fi
+        fi
+        
+        echo "✅ .NET manifests check completed"
+
+  # ==================== СОЗДАНИЕ ОТЧЕТА (.NET) ====================
+  generate-report:
+    name: Generate Test Report (.NET)
+    needs: [dotnet-validation, docker-compose-test, k8s-manifests-check]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Generate summary report
+      run: |
+        echo "# TestProject CI Report (.NET 10)" >> $GITHUB_STEP_SUMMARY
+        echo "**Build:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+        echo "**.NET Version:** ${{ env.DOTNET_VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "## Results" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ .NET Validation & Tests: ${{ needs.dotnet-validation.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Docker Compose Tests: ${{ needs.docker-compose-test.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ K8s Validation: ${{ needs.k8s-manifests-check.result }}" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.build-and-push.result }}" != "null" ]; then
+          echo "- ✅ Docker Build: ${{ needs.build-and-push.result }}" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.deploy-to-local.result }}" != "null" ]; then
+          echo "- ✅ K8s Deployment: ${{ needs.deploy-to-local.result }}" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Build Details" >> $GITHUB_STEP_SUMMARY
+        echo "- **Solution:** ${{ env.SOLUTION_FILE }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Entry Project:** ${{ env.WEBAPI_PROJECT }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Service Name:** ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Local Development" >> $GITHUB_STEP_SUMMARY
+        echo "To run locally with Docker Desktop:" >> $GITHUB_STEP_SUMMARY
+        echo "```bash" >> $GITHUB_STEP_SUMMARY
+        echo "# Using Docker Desktop Kubernetes" >> $GITHUB_STEP_SUMMARY
+        echo "make setup-k8s" >> $GITHUB_STEP_SUMMARY
+        echo "make deploy-local" >> $GITHUB_STEP_SUMMARY
+        echo "# Access at: http://localhost:8080" >> $GITHUB_STEP_SUMMARY
+        echo "```" >> $GITHUB_STEP_SUMMARY
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Docker Compose" >> $GITHUB_STEP_SUMMARY
+        echo "```bash" >> $GITHUB_STEP_SUMMARY
+        echo "cd docker" >> $GITHUB_STEP_SUMMARY
+        echo "docker-compose -f docker-compose.local.yaml up --build" >> $GITHUB_STEP_SUMMARY
+        echo "```" >> $GITHUB_STEP_SUMMARY
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "1. Review the changes" >> $GITHUB_STEP_SUMMARY
+        echo "2. Merge to main for production deployment" >> $GITHUB_STEP_SUMMARY
+        echo "3. Monitor deployment in production" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,66 @@
+services:
+  # ==================== POSTGRESQL ====================
+  postgres-test:
+    container_name: testproject-postgres
+    image: postgres:15-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ==================== REDIS ====================
+  redis-test:
+    container_name: testproject-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+
+  # ==================== TEST SERVICE (.NET) ====================
+  test-service:
+    container_name: testproject-test-service
+    build:
+      context: ./apps/test-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5000:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Host=postgres-test;Port=5432;Database=testdb;Username=test_user;Password=test123"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+
+  # ==================== PGADMIN (ОПЦИОНАЛЬНО - ТОЛЬКО ДЛЯ РАЗРАБОТКИ) ====================
+  pgadmin-test:
+    container_name: testproject-pgadmin
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@testproject.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin-servers.json:/pgadmin4/servers.json  # предзаполненные подключения
+    depends_on:
+      - postgres-test
+    profiles: ["pgadmin"]  # Запускается только с флагом --profile pgadmin
+
+volumes:
+  postgres_data:
+  pgadmin_data:  # Volume для хранения данных pgAdmin

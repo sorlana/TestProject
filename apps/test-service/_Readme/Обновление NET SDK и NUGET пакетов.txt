@@ -1,0 +1,39 @@
+Проверка установки:
+------------------------------------------------------------
+dotnet outdated --help
+upgrade-assistant --help
+
+
+Если не установлено:
+------------------------------------------------------------
+# Установите dotnet-outdated для просмотра устаревших пакетов
+dotnet tool install --global dotnet-outdated
+
+# Установите upgrade-assistant для помощи в обновлении
+dotnet tool install --global upgrade-assistant
+
+
+Запустите обновление в корне проекта (с .sln):
+----------------------------------------------------------
+upgrade-assistant upgrade . - для обновления версии NET SDK (предварительно скачать и установить)
+
+# Установите если нет
+dotnet tool install -g dotnet-outdated-tool
+
+# Проверьте обновления
+dotnet outdated
+
+# Обновите все пакеты
+dotnet outdated --upgrade
+
+
+Запуск и проверка проекта (в корне проекта):
+----------------------------------------------------------
+# Восстановите пакеты
+dotnet restore --force-evaluate
+
+# Соберите решение
+dotnet build
+
+# Или с подробным выводом для отладки
+dotnet build --verbosity detailed

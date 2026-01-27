@@ -1,0 +1,125 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: testproject-app-binding
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: cluster-role-binding
+    app.kubernetes.io/part-of: testproject
+    app.kubernetes.io/managed-by: kustomize
+  annotations:
+    description: "Привязка роли testproject-app-role к сервисному аккаунту приложения"
+    created-by: "kustomize"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: testproject-app-role
+subjects:
+  - kind: ServiceAccount
+    name: testproject-service-account
+    namespace: testproject-namespace
+---
+# Привязка для задач бэкапа
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: testproject-backup-binding
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: backup-binding
+    app.kubernetes.io/part-of: testproject
+  annotations:
+    description: "Привязка роли для задач бэкапа и восстановления"
+    created-by: "kustomize"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: testproject-backup-role
+subjects:
+  - kind: ServiceAccount
+    name: testproject-backup-service-account
+    namespace: testproject-namespace
+---
+# Привязка для миграций БД
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: testproject-migration-binding
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: migration-binding
+    app.kubernetes.io/part-of: testproject
+  annotations:
+    description: "Привязка роли для выполнения миграций базы данных"
+    created-by: "kustomize"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: testproject-migration-role
+subjects:
+  - kind: ServiceAccount
+    name: testproject-migration-service-account
+    namespace: testproject-namespace
+---
+# Привязка для мониторинга
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: testproject-monitoring-binding
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: monitoring-binding
+    app.kubernetes.io/part-of: testproject
+  annotations:
+    description: "Привязка роли для сбора метрик и мониторинга"
+    created-by: "kustomize"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: testproject-monitoring-role
+subjects:
+  - kind: ServiceAccount
+    name: testproject-monitoring-service-account
+    namespace: testproject-namespace
+---
+# Привязка роли view для просмотра ресурсов (для разработчиков)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: testproject-view-binding
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: view-binding
+    app.kubernetes.io/part-of: testproject
+  annotations:
+    description: "Привязка стандартной роли view для разработчиков"
+    created-by: "kustomize"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view  # Стандартная роль Kubernetes для просмотра
+subjects:
+  - kind: Group
+    name: developers
+    apiGroup: rbac.authorization.k8s.io
+---
+# Привязка роли edit для редактирования ресурсов (для админов)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: testproject-edit-binding
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: edit-binding
+    app.kubernetes.io/part-of: testproject
+  annotations:
+    description: "Привязка стандартной роли edit для администраторов"
+    created-by: "kustomize"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: edit  # Стандартная роль Kubernetes для редактирования
+subjects:
+  - kind: Group
+    name: admins
+    apiGroup: rbac.authorization.k8s.io

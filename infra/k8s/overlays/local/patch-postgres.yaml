@@ -1,0 +1,157 @@
+# Патч для PostgreSQL StatefulSet в локальном окружении
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: testproject-namespace
+spec:
+  replicas: 1
+  template:
+    spec:
+      # Уменьшаем ресурсы для локальной разработки
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          env:
+            # Упрощенные настройки для разработки
+            - name: POSTGRES_PASSWORD
+              value: "localdev123"
+            - name: POSTGRES_DB
+              value: "testdb"
+            - name: POSTGRES_USER
+              value: "postgres"
+            - name: POSTGRES_INITDB_ARGS
+              value: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+            # Отключаем некоторые функции для ускорения
+            - name: POSTGRES_SHARED_BUFFERS
+              value: "128MB"
+            - name: POSTGRES_EFFECTIVE_CACHE_SIZE
+              value: "256MB"
+            - name: POSTGRES_MAX_CONNECTIONS
+              value: "50"
+            - name: POSTGRES_WAL_LEVEL
+              value: "minimal"
+            - name: POSTGRES_FULL_PAGE_WRITES
+              value: "off"
+            - name: POSTGRES_MAX_WAL_SENDERS
+              value: "0"
+            - name: POSTGRES_HOT_STANDBY
+              value: "off"
+            # Логирование в консоль
+            - name: POSTGRES_LOG_STATEMENT
+              value: "ddl"
+            - name: POSTGRES_LOG_MIN_DURATION_STATEMENT
+              value: "1000"
+          # Упрощенные пробы
+          readinessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      # Используем hostPath для локального хранилища (если нужно)
+      volumes:
+        - name: postgres-data
+          hostPath:
+            path: /data/postgres
+            type: DirectoryOrCreate
+  # Упрощаем volume claim для локального использования
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: "standard"
+        resources:
+          requests:
+            storage: 5Gi  # Меньший размер для разработки
+---
+# Патч для PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: testproject-namespace
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+  # Для локальной разработки можем пробросить порт
+---
+# Патч для PostgreSQL ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: testproject-namespace
+data:
+  # Упрощенные настройки для разработки
+  POSTGRES_DB: "testdb"
+  POSTGRES_USER: "postgres"
+  POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+  
+  # Оптимизации для разработки
+  POSTGRES_SHARED_BUFFERS: "128MB"
+  POSTGRES_EFFECTIVE_CACHE_SIZE: "256MB"
+  POSTGRES_WORK_MEM: "4MB"
+  POSTGRES_MAINTENANCE_WORK_MEM: "64MB"
+  
+  # Упрощаем WAL
+  POSTGRES_WAL_LEVEL: "minimal"
+  POSTGRES_WAL_COMPRESSION: "off"
+  POSTGRES_MAX_WAL_SIZE: "1GB"
+  POSTGRES_MIN_WAL_SIZE: "80MB"
+  
+  # Уменьшаем соединения
+  POSTGRES_MAX_CONNECTIONS: "50"
+  
+  # Логирование для разработки
+  POSTGRES_LOG_STATEMENT: "ddl"
+  POSTGRES_LOG_MIN_DURATION_STATEMENT: "1000"
+  POSTGRES_LOG_CONNECTIONS: "on"
+  POSTGRES_LOG_DISCONNECTIONS: "on"
+  
+  # Отключаем проверки для скорости
+  POSTGRES_FULL_PAGE_WRITES: "off"
+  POSTGRES_DATA_CHECKSUMS: "off"
+  
+  # Отключаем репликацию
+  POSTGRES_MAX_WAL_SENDERS: "0"
+  POSTGRES_MAX_REPLICATION_SLOTS: "0"
+  POSTGRES_HOT_STANDBY: "off"
+  
+  # Автовакуум
+  POSTGRES_AUTOVACUUM: "on"
+  POSTGRES_AUTOVACUUM_MAX_WORKERS: "1"
+  
+  # Время ожидания
+  POSTGRES_STATEMENT_TIMEOUT: "30000"
+  POSTGRES_LOCK_TIMEOUT: "10000"
+  POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT: "30000"
+---
+# Патч для PostgreSQL Secret (упрощенный для локального использования)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secrets
+  namespace: testproject-namespace
+stringData:
+  POSTGRES_PASSWORD: "localdev123"
+  ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=testdb;Username=postgres;Password=localdev123;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=300;Connection Pruning Interval=10;Timeout=30;Command Timeout=30;Ssl Mode=Disable;"
+---
+# Патч для отключения backup job в локальной среде
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: testproject-namespace
+spec:
+  suspend: true  # Отключаем бэкапы в локальной среде

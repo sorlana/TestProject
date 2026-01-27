@@ -1,0 +1,90 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ============= ОСНОВНЫЕ НАСТРОЙКИ =============
+namespace: testproject-namespace
+
+namePrefix: testproject-
+nameSuffix: -v1
+
+commonLabels:
+  app.kubernetes.io/name: testproject
+  app.kubernetes.io/component: test-service
+  app.kubernetes.io/part-of: testproject
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/version: "1.0.0"
+  project: testproject
+
+commonAnnotations:
+  description: "TestProject - микросервис для управления курсами и уроками"
+  environment: "development"
+  maintainer: "TestProject Team"
+  created-by: "kustomize"
+  last-updated: "2024-01-01"
+
+# ============= РЕСУРСЫ =============
+resources:
+  - ./infra/k8s/base/namespace.yaml
+  # Раскомментировать при создании:
+  # - ./infra/k8s/base/postgres/
+  # - ./infra/k8s/base/test-service/
+  # - ./infra/k8s/base/networking/
+
+# ============= CONFIGMAPS И SECRETS =============
+configMapGenerator:
+  - name: testproject-config
+    literals:
+      - PROJECT_NAME=TestProject
+      - APP_NAME=test-service
+      - APP_PORT=4000
+      - API_PREFIX=/api/v1
+      - LOG_LEVEL=info
+      - NODE_ENV=production
+      - LESSONS_PER_PAGE=20
+      - COURSES_PER_PAGE=10
+  
+  - name: testproject-postgres-config
+    literals:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=test_user
+      - POSTGRES_PORT=5432
+
+secretGenerator:
+  - name: testproject-secrets
+    literals:
+      - DB_PASSWORD=test123
+      - JWT_SECRET=your_jwt_secret_key_change_in_production
+      - REDIS_PASSWORD=redis123
+    options:
+      disableNameSuffixHash: true
+
+# ============= ИЗОБРАЖЕНИЯ =============
+images:
+  - name: test-service
+    newName: ${REGISTRY:-localhost:5000}/testproject-test-service
+    newTag: ${TAG:-latest}
+  
+  - name: postgres
+    newName: postgres
+    newTag: 15-alpine
+
+# ============= PERSISTENT VOLUMES (для сохранения данных в k8s) =============
+# Пример конфигурации PersistentVolumeClaim для PostgreSQL
+generatorOptions:
+  disableNameSuffixHash: true
+
+patchesStrategicMerge:
+  - patches/persistent-volumes.yaml
+
+# В patches/persistent-volumes.yaml можно определить:
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: testproject-postgres-pvc
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 10Gi
+#   storageClassName: standard

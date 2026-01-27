@@ -1,0 +1,26 @@
+# Запускать только для разработки
+
+# Запуск с pgAdmin
+docker-compose --profile pgadmin up -d  # РАЗРАБОТКА
+
+# Запуск без pgAdmin
+docker-compose up -d   # ПРОДАКШЕН (без pgAdmin)
+
+# Просмотр логов
+docker-compose logs -f test-service
+
+# Остановка всех сервисов
+docker-compose down
+
+# Остановка с удалением volume (осторожно!)
+docker-compose down -v
+
+
+# Разработка (с pgAdmin)
+docker-compose --profile pgadmin up -d
+
+# Стейджинг/Тестирование
+docker-compose -f docker-compose.yaml -f docker-compose.stage.yaml up -d
+
+# Продакшен (без pgAdmin, с другими настройками)
+docker-compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d

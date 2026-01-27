@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: testproject-namespace
+  labels:
+    app: postgres
+    component: database
+    tier: backend
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: postgres-db
+    app.kubernetes.io/component: database
+spec:
+  clusterIP: None  # Headless service for StatefulSet
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+  selector:
+    app: postgres
+    component: database
+    tier: backend
+  publishNotReadyAddresses: true  # Важно для StatefulSet
+---
+# Read-only service для реплик (если добавим реплики)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-readonly
+  namespace: testproject-namespace
+  labels:
+    app: postgres
+    component: database
+    tier: backend
+    role: readonly
+spec:
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+  selector:
+    app: postgres
+    component: database
+    tier: backend
+    role: replica

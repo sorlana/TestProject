@@ -1,0 +1,48 @@
+# Патч для ConfigMap приложения в staging
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-service-config
+  namespace: testproject-namespace-staging
+data:
+  AppSettings__Name: "TestService (Staging)"
+  AppSettings__Version: "1.0.0-staging"
+  AppSettings__ApiTitle: "TestService API - Staging"
+  AppSettings__ApiDescription: "API для тестирования и валидации"
+  AppSettings__ContactName: "QA Team"
+  AppSettings__ContactEmail: "qa@testproject.com"
+  AppSettings__ContactUrl: "https://staging.testproject.com/support"
+  
+  # Настройки логирования
+  Serilog__MinimumLevel__Default: "Information"
+  Serilog__MinimumLevel__Override__Microsoft: "Warning"
+  Serilog__MinimumLevel__Override__System: "Warning"
+  Serilog__WriteTo__0__Name: "Console"
+  Serilog__WriteTo__0__Args__outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}"
+  
+  # Настройки CORS
+  Cors__AllowedOrigins: "https://staging.testproject.com,https://api.staging.testproject.com,http://localhost:3000"
+  Cors__AllowedMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  Cors__AllowedHeaders: "Content-Type,Authorization,X-Requested-With,X-API-Key"
+  Cors__AllowCredentials: "true"
+  Cors__MaxAge: "600"
+  
+  # Rate limiting
+  RateLimiting__Enabled: "true"
+  RateLimiting__PermitLimit: "500"
+  RateLimiting__WindowInSeconds: "60"
+  RateLimiting__QueueLimit: "2"
+  
+  # Настройки OpenTelemetry
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_SERVICE_NAME: "test-service-staging"
+  OTEL_RESOURCE_ATTRIBUTES: "service.name=test-service-staging,service.version=1.0.0,deployment.environment=staging"
+  
+  # Feature flags для staging
+  FeatureFlags__EnableSwagger: "true"
+  FeatureFlags__EnableMetrics: "true"
+  FeatureFlags__EnableHealthChecks: "true"
+  FeatureFlags__EnableExperimentalApi: "true"
+  FeatureFlags__EnableRequestLogging: "true"
+  FeatureFlags__EnableResponseCompression: "true"
+  FeatureFlags__EnableCaching: "true"

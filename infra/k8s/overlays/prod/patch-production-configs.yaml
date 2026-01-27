@@ -1,0 +1,59 @@
+# Патч для production конфигураций
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: production-config
+  namespace: testproject-namespace-prod
+data:
+  production-features.json: |
+    {
+      "features": {
+        "monitoring": {
+          "enabled": true,
+          "level": "detailed",
+          "retentionDays": 90,
+          "alertChannels": ["slack", "email", "pagerduty"]
+        },
+        "security": {
+          "rateLimiting": {
+            "enabled": true,
+            "requestsPerMinute": 100,
+            "burstLimit": 20
+          },
+          "authentication": {
+            "require2FA": true,
+            "sessionTimeout": 3600
+          },
+          "auditLogging": {
+            "enabled": true,
+            "retentionDays": 365
+          }
+        },
+        "performance": {
+          "caching": {
+            "enabled": true,
+            "ttl": 300,
+            "maxSize": "100MB"
+          },
+          "compression": {
+            "enabled": true,
+            "level": "optimal"
+          },
+          "responseBuffering": {
+            "enabled": true,
+            "bufferSize": "8192"
+          }
+        },
+        "highAvailability": {
+          "replicas": 3,
+          "zonalDistribution": true,
+          "autoScaling": {
+            "enabled": true,
+            "minReplicas": 3,
+            "maxReplicas": 10,
+            "targetCPU": 70,
+            "targetMemory": 80
+          }
+        }
+      }
+    }

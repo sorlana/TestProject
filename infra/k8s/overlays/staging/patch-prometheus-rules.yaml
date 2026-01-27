@@ -1,0 +1,29 @@
+- op: replace
+  path: /spec/groups/0/name
+  value: test-service.rules.staging
+- op: replace
+  path: /spec/groups/1/rules/0/expr
+  value: rate(aspnetcore_requests_failed_total[5m]) / rate(aspnetcore_requests_total[5m]) > 0.1
+- op: replace
+  path: /spec/groups/1/rules/0/annotations/description
+  value: "TestService имеет процент ошибок {{ $value | humanizePercentage }} за последние 5 минут (staging)"
+- op: replace
+  path: /spec/groups/1/rules/1/expr
+  value: histogram_quantile(0.95, rate(aspnetcore_request_duration_seconds_bucket[5m])) > 5
+- op: replace
+  path: /spec/groups/1/rules/1/annotations/description
+  value: "95-й перцентиль задержки TestService составляет {{ $value }} секунд (staging)"
+- op: add
+  path: /spec/groups/-
+  value:
+    name: staging.specific.rules
+    rules:
+      - alert: StagingTestDataAlert
+        expr: test_data_created_total > 0
+        for: 0m
+        labels:
+          severity: info
+          environment: staging
+        annotations:
+          summary: "Тестовые данные созданы в staging"
+          description: "В staging окружении были созданы тестовые данные"

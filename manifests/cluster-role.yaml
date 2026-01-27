@@ -1,0 +1,138 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: testproject-app-role
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: cluster-role
+    app.kubernetes.io/part-of: testproject
+    app.kubernetes.io/managed-by: kustomize
+  annotations:
+    description: "Роль с минимальными правами для приложения TestProject"
+    created-by: "kustomize"
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+rules:
+  # Минимальные права для чтения конфигураций и секретов в своем namespace
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  
+  # Просмотр своих подов и сервисов (для health checks и discovery)
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  
+  # Просмотр событий для дебаггинга
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  
+  # Доступ к custom resource definitions (если используются)
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  
+  # Просмотр информации о нодах (только для чтения)
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  
+  # Просмотр метрик (для горизонтального автоскейлинга)
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+# Роль для задач бэкапа и восстановления
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: testproject-backup-role
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: backup-role
+    app.kubernetes.io/part-of: testproject
+    app.kubernetes.io/managed-by: kustomize
+  annotations:
+    description: "Роль для задач бэкапа и восстановления данных"
+    created-by: "kustomize"
+rules:
+  # Доступ к persistent volumes и claims для бэкапа
+  - apiGroups: [""]
+    resources: ["persistentvolumes", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  
+  # Создание и удаление временных подов для бэкапа
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create", "delete", "get", "list", "watch"]
+  
+  # Доступ к configmaps и secrets для получения конфигураций БД
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list"]
+  
+  # Доступ к jobs для управления заданиями бэкапа
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["create", "delete", "get", "list", "watch"]
+---
+# Роль для выполнения миграций БД
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: testproject-migration-role
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: migration-role
+    app.kubernetes.io/part-of: testproject
+  annotations:
+    description: "Роль для выполнения миграций базы данных"
+    created-by: "kustomize"
+rules:
+  # Создание и управление подами для миграций
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create", "delete", "get", "list", "watch"]
+  
+  # Доступ к конфигурациям и секретам для получения данных подключения к БД
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list"]
+  
+  # Просмотр jobs для отслеживания миграций
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch"]
+---
+# Роль для мониторинга и сбора метрик
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: testproject-monitoring-role
+  labels:
+    app.kubernetes.io/name: testproject
+    app.kubernetes.io/component: monitoring-role
+    app.kubernetes.io/part-of: testproject
+  annotations:
+    description: "Роль для сбора метрик и мониторинга"
+    created-by: "kustomize"
+rules:
+  # Доступ к метрикам
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list", "watch"]
+  
+  # Чтение информации о ресурсах для мониторинга
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "services", "endpoints", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  
+  # Доступ к событиям для алертинга
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  
+  # Доступ к custom metrics API
+  - apiGroups: ["custom.metrics.k8s.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]

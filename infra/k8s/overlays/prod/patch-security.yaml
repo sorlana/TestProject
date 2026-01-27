@@ -1,0 +1,61 @@
+# Патч для security настроек
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-service
+  namespace: testproject-namespace-prod
+spec:
+  template:
+    metadata:
+      labels:
+        app: test-service
+        security-tier: high
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+        sysctls:
+        - name: net.core.somaxconn
+          value: "1024"
+      containers:
+      - name: test-service
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        env:
+        - name: ASPNETCORE_URLS
+          value: "http://*:8080"
+        - name: DOTNET_RUNNING_IN_CONTAINER
+          value: "true"
+        - name: DOTNET_SYSTEM_GLOBALIZATION_INVARIANT
+          value: "false"
+      imagePullSecrets:
+      - name: yandex-registry-secret
+      nodeSelector:
+        node-type: production
+        security: hardened
+      tolerations:
+      - key: "production"
+        operator: "Exists"
+        effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - test-service
+            topologyKey: kubernetes.io/hostname

@@ -1,0 +1,235 @@
+# Патч для тестового сервиса в локальном окружении
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-service
+  namespace: testproject-namespace
+spec:
+  replicas: 1  # Только одна реплика для разработки
+  selector:
+    matchLabels:
+      app: test-service
+      environment: local
+  template:
+    metadata:
+      labels:
+        app: test-service
+        environment: local
+        deployment: local
+    spec:
+      # Упрощенные настройки для разработки
+      containers:
+        - name: test-service
+          image: test-service-local:latest
+          imagePullPolicy: IfNotPresent  # Используем локальный образ
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 5000
+              name: http-alt
+          env:
+            # Переменные окружения для разработки
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Development"
+            - name: DOTNET_ENVIRONMENT
+              value: "Development"
+            - name: DOTNET_USE_POLLING_FILE_WATCHER
+              value: "true"  # Для мониторинга изменений файлов в контейнере
+            - name: ASPNETCORE_URLS
+              value: "http://*:8080;http://*:5000"
+            - name: ASPNETCORE_Kestrel__Certificates__Default__Path
+              value: ""  # Отключаем SSL для разработки
+            # Логирование
+            - name: Serilog__MinimumLevel__Default
+              value: "Debug"
+            - name: Serilog__MinimumLevel__Override__Microsoft
+              value: "Information"
+            - name: Serilog__MinimumLevel__Override__System
+              value: "Information"
+            # Настройки Swagger
+            - name: Swagger__Enabled
+              value: "true"
+            - name: Swagger__Title
+              value: "TestService API (Local)"
+            - name: Swagger__Version
+              value: "v1"
+            # Настройки CORS
+            - name: Cors__AllowedOrigins
+              value: "http://localhost:3000,http://localhost:8080,http://localhost:5000,http://localhost:4200"
+            - name: Cors__AllowedMethods
+              value: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+            - name: Cors__AllowedHeaders
+              value: "*"
+            - name: Cors__AllowCredentials
+              value: "true"
+            # Настройки базы данных
+            - name: ConnectionStrings__DefaultConnection
+              value: "Host=postgres;Port=5432;Database=testdb;Username=postgres;Password=localdev123;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=300;Connection Pruning Interval=10;Timeout=30;Command Timeout=30;Ssl Mode=Disable;"
+            # Настройки EF Core для разработки
+            - name: Database__Provider
+              value: "PostgreSQL"
+            - name: Database__EnableSensitiveDataLogging
+              value: "true"
+            - name: Database__EnableDetailedErrors
+              value: "true"
+            # Отладка и профилирование
+            - name: DOTNET_DiagnosticPorts
+              value: "/diag/port"
+            # Health checks
+            - name: HealthChecks__Endpoint
+              value: "/health"
+            - name: HealthChecks__UIEndpoint
+              value: "/health-ui"
+          resources:
+            # Уменьшенные ресурсы для разработки
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          # Volume для хранения исходного кода (hot reload)
+          volumeMounts:
+            - name: app-source
+              mountPath: /app
+            - name: nuget-packages
+              mountPath: /root/.nuget/packages
+              readOnly: true
+          # Команды для разработки
+          command: ["dotnet", "watch", "--project", "WebApi/WebApi.csproj", "run", "--urls", "http://0.0.0.0:8080"]
+          args: []
+          # Security context для разработки
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # Разрешаем запись для hot reload
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        # Volume для исходного кода (для hot reload)
+        - name: app-source
+          hostPath:
+            path: /absolute/path/to/your/source/code  # Замените на реальный путь
+            type: Directory
+        - name: nuget-packages
+          hostPath:
+            path: ~/.nuget/packages
+            type: DirectoryOrCreate
+      # Отключаем service account для упрощения
+      automountServiceAccountToken: false
+      # Node selector для локальной разработки
+      nodeSelector:
+        kubernetes.io/hostname: minikube  # Для Minikube
+  # Стратегия обновления для разработки
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+---
+# Патч для Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-service
+  namespace: testproject-namespace
+spec:
+  type: NodePort  # Используем NodePort для локального доступа
+  ports:
+    - port: 80
+      targetPort: 8080
+      nodePort: 30080  # Фиксированный NodePort для удобства
+      name: http
+    - port: 443
+      targetPort: 5000
+      nodePort: 30443
+      name: https
+  selector:
+    app: test-service
+    environment: local
+---
+# Патч для ConfigMap приложения
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-service-config
+  namespace: testproject-namespace
+data:
+  # Конфигурация для локальной разработки
+  AppSettings__Name: "Test Service (Local)"
+  AppSettings__Version: "1.0.0-local"
+  AppSettings__ApiTitle: "TestService API - Local Development"
+  AppSettings__ApiDescription: "API для локальной разработки и тестирования"
+  AppSettings__ContactName: "Developer"
+  AppSettings__ContactEmail: "developer@localhost"
+  AppSettings__ContactUrl: "http://localhost:30080/swagger"
+  AppSettings__EnableSwagger: "true"
+  AppSettings__EnableDetailedErrors: "true"
+  AppSettings__EnableDeveloperExceptionPage: "true"
+  AppSettings__UseInMemoryDatabase: "false"
+  
+  # Настройки логирования
+  Logging__LogLevel__Default: "Debug"
+  Logging__LogLevel__Microsoft: "Information"
+  Logging__LogLevel__Microsoft.AspNetCore: "Information"
+  Logging__LogLevel__Microsoft.EntityFrameworkCore: "Information"
+  
+  # Настройки базы данных
+  Database__Provider: "PostgreSQL"
+  Database__ConnectionStringName: "DefaultConnection"
+  Database__EnableSensitiveDataLogging: "true"
+  Database__EnableDetailedErrors: "true"
+  Database__CommandTimeout: "30"
+  
+  # Настройки CORS
+  Cors__PolicyName: "LocalDevelopment"
+  Cors__AllowedOrigins: "http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5000,http://localhost:4200"
+  Cors__AllowedMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  Cors__AllowedHeaders: "Content-Type,Authorization,X-Requested-With,X-API-Key"
+  Cors__AllowCredentials: "true"
+  Cors__MaxAge: "600"
+  
+  # Rate limiting (отключаем или ослабляем для разработки)
+  RateLimiting__Enabled: "false"
+  RateLimiting__PermitLimit: "1000"
+  RateLimiting__WindowInSeconds: "60"
+  
+  # Health checks
+  HealthChecks__Endpoint: "/health"
+  HealthChecks__UIEndpoint: "/health-ui"
+  HealthChecks__EvaluationTimeInSeconds: "10"
+  HealthChecks__MinimumSecondsBetweenFailureNotifications: "60"
+  
+  # OpenTelemetry (отключаем или упрощаем)
+  OTEL_EXPORTER_OTLP_ENDPOINT: ""
+  OTEL_SERVICE_NAME: "test-service-local"
+  OTEL_RESOURCE_ATTRIBUTES: "service.name=test-service-local,service.version=1.0.0-local,deployment.environment=local"
+  
+  # Feature flags для разработки
+  FeatureFlags__EnableSwagger: "true"
+  FeatureFlags__EnableMetrics: "true"
+  FeatureFlags__EnableHealthChecks: "true"
+  FeatureFlags__EnableRequestLogging: "true"
+  FeatureFlags__EnableResponseCompression: "false"
+  FeatureFlags__EnableCaching: "false"
+  
+  # Временные настройки
+  Temporary__SeedDatabase: "true"
+  Temporary__RunMigrationsOnStart: "true"
+  Temporary__CreateTestData: "true"

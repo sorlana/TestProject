@@ -1,0 +1,296 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: testproject-namespace
+  labels:
+    app: postgres
+    component: database
+    tier: backend
+data:
+  # Базовые настройки
+  POSTGRES_DB: "testdb"
+  POSTGRES_USER: "postgres"
+  POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+  
+  # Настройки производительности (настроены под контейнер с 2Gi RAM)
+  POSTGRES_SHARED_BUFFERS: "512MB"
+  POSTGRES_EFFECTIVE_CACHE_SIZE: "1536MB"
+  POSTGRES_MAINTENANCE_WORK_MEM: "128MB"
+  POSTGRES_WORK_MEM: "8MB"
+  
+  # Настройки WAL (Write-Ahead Logging)
+  POSTGRES_WAL_LEVEL: "logical"
+  POSTGRES_WAL_COMPRESSION: "on"
+  POSTGRES_MAX_WAL_SIZE: "1GB"
+  POSTGRES_MIN_WAL_SIZE: "80MB"
+  POSTGRES_WAL_KEEP_SIZE: "1GB"
+  
+  # Настройки подключений
+  POSTGRES_MAX_CONNECTIONS: "100"
+  POSTGRES_SUPERUSER_RESERVED_CONNECTIONS: "3"
+  
+  # Настройки логирования
+  POSTGRES_LOG_STATEMENT: "ddl"
+  POSTGRES_LOG_MIN_DURATION_STATEMENT: "1000"  # Логировать запросы дольше 1 секунды
+  POSTGRES_LOG_CONNECTIONS: "on"
+  POSTGRES_LOG_DISCONNECTIONS: "on"
+  POSTGRES_LOG_LOCK_WAITS: "on"
+  POSTGRES_LOG_TEMP_FILES: "0"
+  
+  # Настройки времени ожидания
+  POSTGRES_STATEMENT_TIMEOUT: "30000"  # 30 секунд
+  POSTGRES_LOCK_TIMEOUT: "10000"  # 10 секунд
+  POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT: "60000"  # 60 секунд
+  
+  # Настройки репликации
+  POSTGRES_MAX_WAL_SENDERS: "10"
+  POSTGRES_MAX_REPLICATION_SLOTS: "10"
+  POSTGRES_HOT_STANDBY: "on"
+  POSTGRES_HOT_STANDBY_FEEDBACK: "on"
+  
+  # Проверка целостности данных
+  POSTGRES_DATA_CHECKSUMS: "on"
+  POSTGRES_FULL_PAGE_WRITES: "on"
+  
+  # Настройки автовакуума
+  POSTGRES_AUTOVACUUM: "on"
+  POSTGRES_AUTOVACUUM_MAX_WORKERS: "3"
+  POSTGRES_AUTOVACUUM_VACUUM_SCALE_FACTOR: "0.1"
+  POSTGRES_AUTOVACUUM_ANALYZE_SCALE_FACTOR: "0.05"
+  
+  # Настройки для .NET приложений
+  POSTGRES_BYTE_OUTPUT: "escape"
+  POSTGRES_CLIENT_ENCODING: "UTF8"
+  POSTGRES_TIMEZONE: "UTC"
+---
+# ConfigMap с init скриптами
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: testproject-namespace
+  labels:
+    app: postgres
+    component: database
+    tier: backend
+data:
+  01-init-schema.sql: |
+    -- Инициализация схем и расширений для .NET приложения
+    
+    -- Создание схемы приложения
+    CREATE SCHEMA IF NOT EXISTS app;
+    CREATE SCHEMA IF NOT EXISTS audit;
+    
+    -- Включение расширений
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+    CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
+    CREATE EXTENSION IF NOT EXISTS "btree_gin";
+    
+    -- Создание пользователя приложения (если используется отдельный пользователь)
+    -- DO $$
+    -- BEGIN
+    --   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'app_user') THEN
+    --     CREATE ROLE app_user WITH LOGIN PASSWORD '${APP_DB_PASSWORD}';
+    --   END IF;
+    -- END
+    -- $$;
+    -- 
+    -- -- Предоставление прав пользователю приложения
+    -- GRANT CONNECT ON DATABASE testdb TO app_user;
+    -- GRANT USAGE ON SCHEMA public, app, audit TO app_user;
+    -- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public, app, audit TO app_user;
+    -- GRANT USAGE ON ALL SEQUENCES IN SCHEMA public, app, audit TO app_user;
+    -- ALTER DEFAULT PRIVILEGES IN SCHEMA public, app, audit GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+    -- ALTER DEFAULT PRIVILEGES IN SCHEMA public, app, audit GRANT USAGE ON SEQUENCES TO app_user;
+    
+    -- Настройка поискового пути
+    ALTER DATABASE testdb SET search_path TO app, public;
+    
+    -- Комментарии
+    COMMENT ON SCHEMA app IS 'Основная схема приложения TestProject';
+    COMMENT ON SCHEMA audit IS 'Схема для аудита изменений';
+    
+    -- Создание таблицы для отслеживания миграций (если не используется EF Core)
+    CREATE TABLE IF NOT EXISTS public.database_migrations (
+      id SERIAL PRIMARY KEY,
+      migration_name VARCHAR(255) NOT NULL,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      checksum VARCHAR(64),
+      UNIQUE(migration_name)
+    );
+    
+    COMMENT ON TABLE public.database_migrations IS 'Таблица для отслеживания примененных миграций';
+  
+  02-app-config.sql: |
+    -- Конфигурационные таблицы и начальные данные
+    
+    -- Пример конфигурационной таблицы
+    CREATE TABLE IF NOT EXISTS app.configuration (
+      key VARCHAR(255) PRIMARY KEY,
+      value TEXT NOT NULL,
+      description TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by VARCHAR(255) DEFAULT 'system'
+    );
+    
+    -- Начальные конфигурационные данные
+    INSERT INTO app.configuration (key, value, description) VALUES
+      ('app.version', '1.0.0', 'Версия приложения'),
+      ('app.maintenance_mode', 'false', 'Режим технического обслуживания'),
+      ('app.api_rate_limit', '100', 'Лимит запросов в минуту на API'),
+      ('app.default_timezone', 'Europe/Moscow', 'Часовой пояс по умолчанию'),
+      ('app.allow_registration', 'true', 'Разрешить регистрацию новых пользователей')
+    ON CONFLICT (key) DO NOTHING;
+    
+    -- Индексы для производительности
+    CREATE INDEX IF NOT EXISTS idx_configuration_key ON app.configuration(key);
+    
+    -- Пример таблицы для аудита
+    CREATE TABLE IF NOT EXISTS audit.user_actions (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID,
+      action_type VARCHAR(50) NOT NULL,
+      entity_type VARCHAR(100),
+      entity_id VARCHAR(255),
+      old_data JSONB,
+      new_data JSONB,
+      ip_address INET,
+      user_agent TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    
+    -- Индексы для таблицы аудита
+    CREATE INDEX IF NOT EXISTS idx_user_actions_user_id ON audit.user_actions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_actions_action_type ON audit.user_actions(action_type);
+    CREATE INDEX IF NOT EXISTS idx_user_actions_created_at ON audit.user_actions(created_at);
+    CREATE INDEX IF NOT EXISTS idx_user_actions_entity ON audit.user_actions(entity_type, entity_id);
+  
+  03-monitoring.sql: |
+    -- Настройки для мониторинга и метрик
+    
+    -- Включение статистики
+    ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';
+    
+    -- Создание пользователя для мониторинга
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'monitoring_user') THEN
+        CREATE ROLE monitoring_user WITH LOGIN PASSWORD '${MONITORING_PASSWORD}' NOSUPERUSER NOCREATEDB NOCREATEROLE;
+      END IF;
+    END
+    $$;
+    
+    -- Права для мониторинга
+    GRANT pg_monitor TO monitoring_user;
+    GRANT SELECT ON pg_stat_database TO monitoring_user;
+    GRANT SELECT ON pg_stat_user_tables TO monitoring_user;
+    GRANT SELECT ON pg_stat_user_indexes TO monitoring_user;
+    GRANT SELECT ON pg_stat_activity TO monitoring_user;
+    GRANT SELECT ON pg_stat_statements TO monitoring_user;
+    
+    -- Создание view для метрик
+    CREATE OR REPLACE VIEW app.database_metrics AS
+    SELECT 
+      datname as database_name,
+      numbackends as active_connections,
+      xact_commit as transactions_committed,
+      xact_rollback as transactions_rolled_back,
+      blks_read as blocks_read,
+      blks_hit as blocks_hit,
+      tup_returned as tuples_returned,
+      tup_fetched as tuples_fetched,
+      tup_inserted as tuples_inserted,
+      tup_updated as tuples_updated,
+      tup_deleted as tuples_deleted,
+      stats_reset as last_reset
+    FROM pg_stat_database
+    WHERE datname = current_database();
+    
+    GRANT SELECT ON app.database_metrics TO monitoring_user;
+    
+    -- Комментарии
+    COMMENT ON VIEW app.database_metrics IS 'Метрики базы данных для мониторинга';
+    
+  postgresql.conf: |
+    # Основные настройки PostgreSQL
+    listen_addresses = '*'
+    port = 5432
+    max_connections = 100
+    superuser_reserved_connections = 3
+    shared_buffers = 512MB
+    effective_cache_size = 1536MB
+    maintenance_work_mem = 128MB
+    checkpoint_completion_target = 0.9
+    wal_buffers = 16MB
+    default_statistics_target = 100
+    random_page_cost = 1.1
+    effective_io_concurrency = 200
+    work_mem = 8MB
+    min_wal_size = 80MB
+    max_wal_size = 1GB
+    max_worker_processes = 8
+    max_parallel_workers_per_gather = 2
+    max_parallel_workers = 8
+    max_parallel_maintenance_workers = 2
+    
+    # Логирование
+    logging_collector = on
+    log_directory = 'pg_log'
+    log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+    log_file_mode = 0600
+    log_truncate_on_rotation = on
+    log_rotation_age = 1d
+    log_rotation_size = 10MB
+    log_min_duration_statement = 1000
+    log_checkpoints = on
+    log_connections = on
+    log_disconnections = on
+    log_lock_waits = on
+    log_temp_files = 0
+    log_autovacuum_min_duration = 0
+    log_replication_commands = on
+    
+    # WAL
+    wal_level = logical
+    wal_compression = on
+    wal_log_hints = on
+    wal_keep_size = 1GB
+    max_wal_senders = 10
+    max_replication_slots = 10
+    
+    # Автовакуум
+    autovacuum = on
+    autovacuum_max_workers = 3
+    autovacuum_vacuum_cost_limit = 1000
+    autovacuum_vacuum_scale_factor = 0.1
+    autovacuum_analyze_scale_factor = 0.05
+    
+    # Время ожидания
+    statement_timeout = 30000
+    lock_timeout = 10000
+    idle_in_transaction_session_timeout = 60000
+    
+    # Производительность запросов
+    enable_bitmapscan = on
+    enable_hashagg = on
+    enable_hashjoin = on
+    enable_indexscan = on
+    enable_indexonlyscan = on
+    enable_material = on
+    enable_mergejoin = on
+    enable_nestloop = on
+    enable_seqscan = on
+    enable_sort = on
+    enable_tidscan = on
+    
+    # Репликация и восстановление
+    hot_standby = on
+    hot_standby_feedback = on
+    max_standby_archive_delay = 30s
+    max_standby_streaming_delay = 30s
+    
+    # Проверка целостности
+    data_checksums = on
+    full_page_writes = on

@@ -1,0 +1,9 @@
+# Установите Scoop (проще Chocolatey)
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+irm get.scoop.sh | iex
+
+# Установите make через Scoop
+scoop install make
+
+# Проверьте
+make --version

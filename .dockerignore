@@ -1,0 +1,70 @@
+# ============= ИСХОДНЫЙ КОД И ДОКУМЕНТАЦИЯ =============
+.git
+.gitignore
+.github/
+.gitlab/
+
+# ============= ОКРУЖЕНИЕ И КОНФИГУРАЦИЯ =============
+.env
+.env.*
+.dockerignore
+Dockerfile
+docker-compose*.yml
+Makefile
+README.md
+LICENSE
+
+# ============= ЗАВИСИМОСТИ =============
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.npm/
+.yarn/
+
+# ============= ТЕСТЫ И ДОКУМЕНТАЦИЯ =============
+test/
+tests/
+__tests__/
+coverage/
+jest.config.js
+*.test.js
+*.spec.js
+docs/
+
+# ============= ЛОГИ И ВРЕМЕННЫЕ ФАЙЛЫ =============
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+tmp/
+temp/
+
+# ============= РЕДАКТОРЫ =============
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ============= СБОРКА =============
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# ============= ОС =============
+.DS_Store
+Thumbs.db
+
+# ============= KUBERNETES И TERRAFORM =============
+k8s/
+manifests/
+infra/
+*.tfstate
+*.tfvars
+.terraform/
+
+# ============= БЭКАПЫ =============
+*.sql
+*.sql.gz
+backup/

@@ -1,0 +1,99 @@
+# Makefile для локальной разработки
+
+.PHONY: help deploy delete port-forward logs shell build-local apply-local
+
+# Определяем namespace
+NAMESPACE ?= testproject-namespace
+KUSTOMIZE_PATH ?= infra/k8s/overlays/local
+
+help:
+	@echo "Доступные команды для локальной разработки:"
+	@echo "  make deploy            - Развернуть приложение в локальном кластере"
+	@echo "  make delete            - Удалить приложение из локального кластера"
+	@echo "  make port-forward      - Пробросить порты для локального доступа"
+	@echo "  make logs              - Показать логи приложения"
+	@echo "  make logs-postgres     - Показать логи PostgreSQL"
+	@echo "  make shell             - Зайти в контейнер приложения"
+	@echo "  make shell-postgres    - Зайти в контейнер PostgreSQL"
+	@echo "  make build-local       - Собрать локальный Docker образ"
+	@echo "  make apply-local       - Применить конфигурацию локального окружения"
+	@echo "  make watch             - Следить за изменениями и перезапускать"
+	@echo "  make restart           - Перезапустить deployment"
+	@echo "  make status            - Показать статус развертывания"
+	@echo "  make migrate           - Выполнить миграции базы данных"
+
+deploy: build-local apply-local
+	@echo "✅ Развертывание завершено"
+
+delete:
+	@kubectl delete -k $(KUSTOMIZE_PATH) --ignore-not-found
+	@echo "🗑️  Удаление завершено"
+
+port-forward:
+	@echo "🌐 Проброс портов:"
+	@echo "  - Приложение: http://localhost:30080"
+	@echo "  - PostgreSQL: localhost:5432"
+	@echo "  - Ingress: http://test.local"
+	@echo ""
+	@echo "Нажмите Ctrl+C для остановки"
+	@kubectl port-forward -n $(NAMESPACE) service/test-service 30080:80 &
+	@kubectl port-forward -n $(NAMESPACE) service/postgres 5432:5432 &
+	@wait
+
+logs:
+	@kubectl logs -n $(NAMESPACE) deployment/test-service -f
+
+logs-postgres:
+	@kubectl logs -n $(NAMESPACE) statefulset/postgres -f
+
+shell:
+	@kubectl exec -n $(NAMESPACE) deployment/test-service -it -- /bin/bash
+
+shell-postgres:
+	@kubectl exec -n $(NAMESPACE) statefulset/postgres -it -- psql -U postgres -d testdb
+
+build-local:
+	@echo "🔨 Сборка локального Docker образа..."
+	@docker build -t test-service-local:latest -f apps/test-service/Dockerfile.dev apps/test-service/
+	@echo "✅ Образ собран: test-service-local:latest"
+
+apply-local:
+	@echo "🚀 Применение конфигурации локального окружения..."
+	@kubectl apply -k $(KUSTOMIZE_PATH)
+	@echo "⏳ Ожидание готовности подов..."
+	@kubectl wait --for=condition=available --timeout=300s -n $(NAMESPACE) deployment/test-service
+	@kubectl wait --for=condition=ready --timeout=300s -n $(NAMESPACE) pod -l app=postgres
+
+watch:
+	@echo "👀 Слежение за изменениями в папке apps/test-service/"
+	@find apps/test-service/ -type f -name "*.cs" -o -name "*.csproj" -o -name "*.json" | entr -c make restart
+
+restart:
+	@echo "🔄 Перезапуск deployment..."
+	@kubectl rollout restart deployment test-service -n $(NAMESPACE)
+
+status:
+	@echo "📊 Статус развертывания:"
+	@kubectl get all -n $(NAMESPACE)
+	@echo ""
+	@echo "📈 Логи приложения:"
+	@kubectl logs -n $(NAMESPACE) deployment/test-service --tail=10
+
+migrate:
+	@echo "🗃️  Выполнение миграций базы данных..."
+	@kubectl exec -n $(NAMESPACE) deployment/test-service -- dotnet ef database update
+	@echo "✅ Миграции выполнены"
+
+# Команда для добавления записи в hosts файл
+add-hosts:
+	@echo "Добавление записей в /etc/hosts..."
+	@sudo sh -c 'echo "127.0.0.1 test.local" >> /etc/hosts'
+	@echo "✅ Запись добавлена: 127.0.0.1 test.local"
+
+# Команда для запуска полного локального окружения
+up: add-hosts deploy port-forward
+	@echo "🚀 Локальное окружение запущено!"
+
+# Команда для остановки локального окружения
+down: delete
+	@echo "🛑 Локальное окружение остановлено"

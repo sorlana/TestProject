@@ -1,0 +1,276 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: test-service-pod-monitor
+  namespace: testproject-namespace
+  labels:
+    app: test-service
+    component: monitoring
+    release: prometheus-stack
+    app.kubernetes.io/name: test-service
+    app.kubernetes.io/instance: test-service-pod-monitor
+  annotations:
+    description: "PodMonitor для детального мониторинга подов .NET приложения"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+spec:
+  selector:
+    matchLabels:
+      app: test-service
+  namespaceSelector:
+    matchNames:
+      - testproject-namespace
+  podMetricsEndpoints:
+    - port: http-metrics
+      interval: 15s
+      path: /metrics
+      scrapeTimeout: 10s
+      honorLabels: true
+      honorTimestamps: true
+      scheme: http
+      relabelings:
+        # Добавляем метки для идентификации пода
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_pod_container_name]
+          targetLabel: container
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - sourceLabels: [__meta_kubernetes_pod_phase]
+          regex: "Running"
+          action: keep
+      metricRelabelings:
+        # Группировка метрик .NET приложения
+        # 1. Метрики сборки мусора (GC)
+        - sourceLabels: [__name__]
+          regex: 'dotnet_gc_.*'
+          action: keep
+        # 2. Метрики пула потоков (ThreadPool)
+        - sourceLabels: [__name__]
+          regex: 'dotnet_threadpool_.*'
+          action: keep
+        # 3. Метрики памяти (Memory)
+        - sourceLabels: [__name__]
+          regex: 'dotnet_memory_.*'
+          action: keep
+        # 4. Метрики JIT
+        - sourceLabels: [__name__]
+          regex: 'dotnet_jit_.*'
+          action: keep
+        # 5. Метрики исключений
+        - sourceLabels: [__name__]
+          regex: 'dotnet_exceptions_.*'
+          action: keep
+        # 6. Метрики ASP.NET Core
+        - sourceLabels: [__name__]
+          regex: 'aspnetcore_.*'
+          action: keep
+        # 7. Метрики HTTP запросов
+        - sourceLabels: [__name__]
+          regex: 'http_.*'
+          action: keep
+        # 8. Метрики процесса
+        - sourceLabels: [__name__]
+          regex: 'process_.*'
+          action: keep
+        # 9. Метрики OpenTelemetry (если используется)
+        - sourceLabels: [__name__]
+          regex: 'otel_.*'
+          action: keep
+        
+        # Переименование метрик для удобства чтения
+        - sourceLabels: [__name__]
+          targetLabel: __name__
+          regex: 'dotnet_gc_(.+)'
+          replacement: 'dotnet_gc_${1}'
+        - sourceLabels: [__name__]
+          targetLabel: __name__
+          regex: 'aspnetcore_requests_(.+)'
+          replacement: 'aspnetcore_requests_${1}'
+        
+        # Добавляем дополнительные метки
+        - targetLabel: service
+          replacement: "test-service"
+        - targetLabel: environment
+          replacement: "production"
+        - targetLabel: component
+          replacement: "backend"
+        
+        # Удаляем ненужные метки
+        - regex: '(instance|job)'
+          action: labeldrop
+    
+    # Health check метрики
+    - port: http
+      interval: 30s
+      path: /health
+      scrapeTimeout: 5s
+      params:
+        detailed: ["true"]
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: 'health_check_status'
+          action: keep
+    
+    # Readiness check метрики
+    - port: http
+      interval: 30s
+      path: /health/ready
+      scrapeTimeout: 5s
+    
+    # Liveness check метрики
+    - port: http
+      interval: 30s
+      path: /health/live
+      scrapeTimeout: 5s
+---
+# PodMonitor для PostgreSQL (с sidecar exporter)
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: postgres-pod-monitor
+  namespace: testproject-namespace
+  labels:
+    app: postgres
+    component: monitoring
+    release: prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: postgres
+      component: database
+  namespaceSelector:
+    matchNames:
+      - testproject-namespace
+  podMetricsEndpoints:
+    - port: exporter
+      interval: 30s
+      path: /metrics
+      scrapeTimeout: 10s
+      honorLabels: true
+      metricRelabelings:
+        # Оставляем только важные метрики PostgreSQL
+        - sourceLabels: [__name__]
+          regex: 'pg_stat_.*|pg_database_.*|pg_replication_.*|pg_settings_.*'
+          action: keep
+        
+        # Добавляем идентификаторы
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        
+        # Переименование метрик
+        - sourceLabels: [__name__]
+          targetLabel: __name__
+          regex: 'pg_stat_database_([^_]+)'
+          replacement: 'postgres_database_${1}'
+        - sourceLabels: [__name__]
+          targetLabel: __name__
+          regex: 'pg_stat_activity_count'
+          replacement: 'postgres_connections_total'
+        
+        # Удаляем ненужные метки
+        - regex: '(instance|job)'
+          action: labeldrop
+---
+# PodMonitor для sidecar контейнеров
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: sidecar-monitor
+  namespace: testproject-namespace
+  labels:
+    app: sidecar
+    component: monitoring
+    release: prometheus-stack
+spec:
+  selector:
+    matchExpressions:
+      - key: app
+        operator: Exists
+  namespaceSelector:
+    matchNames:
+      - testproject-namespace
+  podMetricsEndpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scrapeTimeout: 10s
+      relabelings:
+        # Мониторим только sidecar контейнеры
+        - sourceLabels: [__meta_kubernetes_pod_container_name]
+          regex: '.*sidecar.*|.*exporter.*'
+          action: keep
+---
+# PodMonitor для бизнес-метрик .NET приложения
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: test-service-business-metrics
+  namespace: testproject-namespace
+  labels:
+    app: test-service
+    component: monitoring
+    release: prometheus-stack
+    metrics: business
+spec:
+  selector:
+    matchLabels:
+      app: test-service
+  namespaceSelector:
+    matchNames:
+      - testproject-namespace
+  podMetricsEndpoints:
+    - port: http
+      interval: 60s
+      path: /api/metrics/business
+      scrapeTimeout: 15s
+      params:
+        format: ["prometheus"]
+      metricRelabelings:
+        # Бизнес метрики приложения
+        - sourceLabels: [__name__]
+          regex: 'business_.*|application_.*|user_.*|order_.*|payment_.*'
+          action: keep
+        # Добавляем environment
+        - targetLabel: environment
+          replacement: "production"
+        - targetLabel: service
+          replacement: "test-service"
+---
+# PodMonitor для трассировки (если используется OpenTelemetry)
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: test-service-tracing
+  namespace: testproject-namespace
+  labels:
+    app: test-service
+    component: monitoring
+    release: prometheus-stack
+    metrics: tracing
+spec:
+  selector:
+    matchLabels:
+      app: test-service
+  namespaceSelector:
+    matchNames:
+      - testproject-namespace
+  podMetricsEndpoints:
+    - port: otlp
+      interval: 30s
+      path: /v1/metrics
+      scrapeTimeout: 10s
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: 'otel_.*'
+          action: keep
+        - targetLabel: telemetry_sdk_language
+          replacement: "dotnet"
+        - targetLabel: telemetry_sdk_name
+          replacement: "opentelemetry"
+        - targetLabel: telemetry_sdk_version
+          replacement: "1.0.0"
