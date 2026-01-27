@@ -1,0 +1,8 @@
+# 1. Создайте дамп базы данных
+docker exec testproject-postgres pg_dump -U test_user -d testdb > backup_$(Get-Date -Format "yyyyMMdd_HHmmss").sql
+
+# 2. Или скопируйте весь том
+docker run --rm -v testproject_postgres_data:/source -v ${PWD}:/backup alpine tar czf /backup/postgres_backup_$(date +%Y%m%d_%H%M%S).tar.gz -C /source .
+
+# 3. Список существующих бекапов
+dir *.sql

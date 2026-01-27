@@ -24,3 +24,16 @@ docker-compose -f docker-compose.yaml -f docker-compose.stage.yaml up -d
 
 # Продакшен (без pgAdmin, с другими настройками)
 docker-compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+
+
+
+Решение проблемы с сетью:
+powershell
+# 1. Удалите старый контейнер pgAdmin
+docker rm -f testproject-pgadmin
+
+# 2. Пересоздайте контейнер pgAdmin с нуля
+docker-compose --profile pgadmin up -d pgadmin-test
+
+# 3. Проверьте результат
+docker-compose ps

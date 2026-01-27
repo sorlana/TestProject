@@ -1,35 +1,39 @@
+version: '3.8'
+
 services:
   # ==================== POSTGRESQL ====================
   postgres-test:
-    container_name: testproject-postgres
+    container_name: ${COMPOSE_PROJECT_NAME}-postgres
     image: postgres:15-alpine
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:5432"
     environment:
-      POSTGRES_DB: testdb
-      POSTGRES_USER: test_user
-      POSTGRES_PASSWORD: test123
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test_user -d testdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 3
 
   # ==================== REDIS ====================
   redis-test:
-    container_name: testproject-redis
+    container_name: ${COMPOSE_PROJECT_NAME}-redis
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT}:6379"
     command: redis-server --appendonly yes
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
 
   # ==================== TEST SERVICE (.NET) ====================
   test-service:
-    container_name: testproject-test-service
+    container_name: ${COMPOSE_PROJECT_NAME}-test-service
     build:
       context: ./apps/test-service
       dockerfile: Dockerfile
@@ -37,30 +41,38 @@ services:
     ports:
       - "5000:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: ${NODE_ENV:-Development}
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: "Host=postgres-test;Port=5432;Database=testdb;Username=test_user;Password=test123"
+      ConnectionStrings__DefaultConnection: "Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};SslMode=${SSL_MODE};SslRootCert=${SSL_CA_PATH}"
+      JWT__Secret: ${JWT_SECRET}
+      JWT__ExpiresIn: ${JWT_EXPIRES_IN}
+      Cors__Origins: ${CORS_ORIGIN}
+      Redis__Host: redis-test
+      Redis__Port: ${REDIS_PORT}
+      Redis__Password: ${REDIS_PASSWORD}
     depends_on:
       postgres-test:
         condition: service_healthy
+      redis-test:
+        condition: service_started
 
   # ==================== PGADMIN (ОПЦИОНАЛЬНО - ТОЛЬКО ДЛЯ РАЗРАБОТКИ) ====================
   pgadmin-test:
-    container_name: testproject-pgadmin
+    container_name: ${COMPOSE_PROJECT_NAME}-pgadmin
     image: dpage/pgadmin4:latest
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "${PGADMIN_PORT}:80"
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@testproject.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     volumes:
       - pgadmin_data:/var/lib/pgadmin
-      - ./pgadmin-servers.json:/pgadmin4/servers.json  # предзаполненные подключения
+      - ./pgadmin-servers.json:/pgadmin4/servers.json
     depends_on:
       - postgres-test
-    profiles: ["pgadmin"]  # Запускается только с флагом --profile pgadmin
+    profiles: ["pgadmin"]
 
 volumes:
   postgres_data:
-  pgadmin_data:  # Volume для хранения данных pgAdmin
+  pgadmin_data:
