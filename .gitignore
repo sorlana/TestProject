@@ -88,3 +88,9 @@ dump.rdb
 *.pid
 *.seed
 *.pid.lock
+context.bat 
+context.txt 
+apps/test-service/context.bat 
+apps/test-service/context.txt 
+ 
+ 

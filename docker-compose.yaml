@@ -12,6 +12,7 @@ services:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,36 +28,79 @@ services:
     restart: unless-stopped
     ports:
       - "${REDIS_PORT}:6379"
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
 
   # ==================== TEST SERVICE (.NET) ====================
   test-service:
     container_name: ${COMPOSE_PROJECT_NAME}-test-service
     build:
-      context: ./apps/test-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/test-service/Dockerfile
     restart: unless-stopped
     ports:
-      - "5000:8080"
+      - "${APP_PORT}:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: ${NODE_ENV:-Development}
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: "Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};SslMode=${SSL_MODE};SslRootCert=${SSL_CA_PATH}"
+      
+      # Переменные для строки подключения к БД (используем отдельные переменные без SSL)
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      
+      # Убираем SSL параметры для локальной разработки
+      DB_SSL_MODE: ${SSL_MODE}
+      
+      # Настройки для миграций и повторных попыток
+      Database__AutoMigrate: ${DATABASE_AUTO_MIGRATE:-true}
+      Database__RetryCount: ${DATABASE_RETRY_COUNT:-3}
+      Database__RetryDelaySeconds: ${DATABASE_RETRY_DELAY:-5}
+      
+      # Безопасность
       JWT__Secret: ${JWT_SECRET}
       JWT__ExpiresIn: ${JWT_EXPIRES_IN}
+      
+      # CORS
       Cors__Origins: ${CORS_ORIGIN}
+      
+      # Redis
       Redis__Host: redis-test
       Redis__Port: ${REDIS_PORT}
       Redis__Password: ${REDIS_PASSWORD}
+      
+      # RabbitMQ
+      RmqSettings__Host: ${RMQ_HOST}
+      RmqSettings__VHost: ${RMQ_VHOST}
+      RmqSettings__Login: ${RMQ_LOGIN}
+      RmqSettings__Password: ${RMQ_PASSWORD}
+      
+      # Настройки приложения
+      AppSettings__LessonsPerPage: ${APP_LESSONS_PER_PAGE:-20}
+      AppSettings__CoursesPerPage: ${APP_COURSES_PER_PAGE:-10}
+    
+    volumes:
+      - ./apps/test-service/logs:/app/logs  # Логи приложения
+    
     depends_on:
       postgres-test:
         condition: service_healthy
       redis-test:
         condition: service_started
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
-  # ==================== PGADMIN (ОПЦИОНАЛЬНО - ТОЛЬКО ДЛЯ РАЗРАБОТКИ) ====================
+  # ==================== PGADMIN (ОПЦИОНАЛЬНО) ====================
   pgadmin-test:
     container_name: ${COMPOSE_PROJECT_NAME}-pgadmin
     image: dpage/pgadmin4:latest
@@ -66,6 +110,7 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
     volumes:
       - pgadmin_data:/var/lib/pgadmin
       - ./pgadmin-servers.json:/pgadmin4/servers.json
@@ -73,6 +118,11 @@ services:
       - postgres-test
     profiles: ["pgadmin"]
 
+# ============= VOLUMES =============
 volumes:
   postgres_data:
+    name: ${COMPOSE_PROJECT_NAME}-postgres-data
+  redis_data:
+    name: ${COMPOSE_PROJECT_NAME}-redis-data
   pgadmin_data:
+    name: ${COMPOSE_PROJECT_NAME}-pgadmin-data
