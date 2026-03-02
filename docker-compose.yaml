@@ -189,6 +189,49 @@ services:
       retries: 3
       start_period: 60s
 
+  # ==================== LANDING CMS (.NET + PIRANHA CMS) ====================
+  landing-cms:
+    container_name: ${COMPOSE_PROJECT_NAME}-landing-cms
+    build:
+      context: ./apps/landing-cms
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${LANDING_CMS_PORT:-3000}:80"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${NODE_ENV:-Development}
+      ASPNETCORE_URLS: http://+:80
+      
+      # Подключение к PostgreSQL (используем схему public)
+      ConnectionStrings__PiranhaDb: "Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};SSL Mode=${SSL_MODE}"
+      
+      # Настройки для миграций
+      Database__AutoMigrate: ${DATABASE_AUTO_MIGRATE:-true}
+      Database__RetryCount: ${DATABASE_RETRY_COUNT:-3}
+      Database__RetryDelaySeconds: ${DATABASE_RETRY_DELAY:-5}
+      
+      # Piranha CMS настройки
+      Piranha__MediaCDN: ${PIRANHA_MEDIA_CDN:-}
+      
+      # Логирование
+      Logging__LogLevel__Default: ${LOG_LEVEL:-Information}
+      Logging__LogLevel__Microsoft.AspNetCore: Warning
+      Logging__LogLevel__Piranha: Information
+    
+    volumes:
+      - ./apps/landing-cms/logs:/app/logs
+    
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
   # ==================== PGADMIN (ОПЦИОНАЛЬНО) ====================
   pgadmin-test:
     container_name: ${COMPOSE_PROJECT_NAME}-pgadmin

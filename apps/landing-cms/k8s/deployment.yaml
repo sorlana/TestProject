@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: landing-cms
+  labels:
+    app: landing-cms
+    component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: landing-cms
+  template:
+    metadata:
+      labels:
+        app: landing-cms
+        component: frontend
+    spec:
+      containers:
+      - name: landing-cms
+        image: landing-cms:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: ASPNETCORE_URLS
+          value: "http://+:80"
+        - name: ConnectionStrings__PiranhaDb
+          valueFrom:
+            secretKeyRef:
+              name: landing-cms-secrets
+              key: db-connection-string
+        - name: Piranha__MediaCDN
+          valueFrom:
+            configMapKeyRef:
+              name: landing-cms-config
+              key: media-cdn
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 80
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 80
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}

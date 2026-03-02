@@ -1,0 +1,97 @@
+@using LandingCms.Helpers
+@model LandingCms.Models.LandingPage
+
+@{
+    ViewData["Title"] = Model.Seo?.MetaTitle?.Value ?? "Главная";
+}
+
+@* Hero секция *@
+<section class="hero position-relative text-white" style="@(Model.Hero?.BackgroundImage?.HasValue == true ? $"background-image: url('{ImageHelper.GetImageUrl(Url, Model.Hero.BackgroundImage.Id, 1920)}'); background-size: cover; background-position: center;" : "background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);")">
+    <div class="container py-5">
+        <div class="row min-vh-50 align-items-center">
+            <div class="col-lg-8 mx-auto text-center">
+                <h1 class="display-3 fw-bold mb-4">@Model.Hero?.Title?.Value</h1>
+                <p class="lead mb-4">@Model.Hero?.Description?.Value</p>
+                <a href="/app" class="btn btn-light btn-lg px-5 py-3">@(Model.Hero?.ButtonText?.Value ?? "Начать обучение")</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* Секция "О программе" *@
+<section id="about" class="about py-5">
+    <div class="container">
+        <article class="row align-items-center">
+            <div class="col-lg-6 mb-4 mb-lg-0">
+                @if (Model.About?.Image?.HasValue == true)
+                {
+                    var imageId = Model.About.Image.Id;
+                    var srcset = ImageHelper.GenerateSrcSet(Url, imageId, new[] { 400, 600, 800, 1200 });
+                    var sizes = "(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 600px";
+                    
+                    <img src="@ImageHelper.GetImageUrl(Url, imageId, 800)" 
+                         srcset="@srcset"
+                         sizes="@sizes"
+                         alt="@Model.About.Title?.Value" 
+                         class="img-fluid rounded shadow" 
+                         loading="lazy" />
+                }
+                else
+                {
+                    <div class="bg-light rounded shadow" style="height: 400px; display: flex; align-items: center; justify-content: center;">
+                        <span class="text-muted">Изображение</span>
+                    </div>
+                }
+            </div>
+            <div class="col-lg-6">
+                <header>
+                    <h2 class="display-5 fw-bold mb-4">@Model.About?.Title?.Value</h2>
+                </header>
+                <div class="about-content">
+                    @Html.Raw(Model.About?.Description?.Value)
+                </div>
+            </div>
+        </article>
+    </div>
+</section>
+
+@* Секция "Тарифы" *@
+<section id="tariffs" class="tariffs py-5 bg-light">
+    <div class="container">
+        <header class="text-center mb-5">
+            <h2 class="display-5 fw-bold">@Model.Tariffs?.Title?.Value</h2>
+        </header>
+        <div class="row g-4 justify-content-center">
+            @if (Model.Tariffs?.GeneralTariffName?.Value != null)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <article class="card h-100 shadow-sm border-0">
+                        <div class="card-body d-flex flex-column">
+                            <header>
+                                <h3 class="card-title h4 mb-3">@Model.Tariffs.GeneralTariffName.Value</h3>
+                            </header>
+                            <p class="card-text text-muted mb-3">@Model.Tariffs.GeneralTariffDescription?.Value</p>
+                            <div class="price mb-4">
+                                <span class="display-4 fw-bold">@Model.Tariffs.GeneralTariffPrice?.Value</span>
+                                <span class="text-muted">₽/мес</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(Model.Tariffs.GeneralTariffFeatures?.Value))
+                            {
+                                <ul class="list-unstyled mb-4 flex-grow-1">
+                                    @foreach (var feature in Model.Tariffs.GeneralTariffFeatures.Value.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                                    {
+                                        <li class="mb-2">
+                                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                            @feature
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            <a href="/tariff/purchase/@Model.Tariffs.GeneralTariffId?.Value" class="btn btn-primary btn-lg w-100 mt-auto">Купить</a>
+                        </div>
+                    </article>
+                </div>
+            }
+        </div>
+    </div>
+</section>

@@ -1,0 +1,27 @@
+@model LandingPage
+@using System.Text.Json
+@{
+    // Генерация structured data (JSON-LD) для организации
+    var structuredData = new
+    {
+        context = "https://schema.org",
+        type = "Organization",
+        name = "Платформа онлайн-обучения",
+        url = $"{Context.Request.Scheme}://{Context.Request.Host}",
+        logo = Model?.Seo?.OgImage?.HasValue == true 
+            ? $"{Context.Request.Scheme}://{Context.Request.Host}/uploads/{Model.Seo.OgImage.Id}" 
+            : null,
+        description = Model?.Seo?.MetaDescription?.Value ?? "Платформа для онлайн-обучения",
+        sameAs = new string[] { }
+    };
+
+    var jsonLd = JsonSerializer.Serialize(structuredData, new JsonSerializerOptions 
+    { 
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = false
+    });
+}
+
+<script type="application/ld+json">
+@Html.Raw(jsonLd)
+</script>

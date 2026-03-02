@@ -1,0 +1,42 @@
+@model LandingCms.Models.TariffItem
+
+<article class="card h-100 shadow-sm border-0">
+    <div class="card-body d-flex flex-column">
+        <header class="mb-3">
+            <h3 class="card-title h4 fw-bold">@Model.Name?.Value</h3>
+        </header>
+        
+        <p class="card-text text-muted mb-3">@Model.Description?.Value</p>
+        
+        <div class="mb-4">
+            <span class="display-4 fw-bold text-primary">@Model.Price?.Value</span>
+            <span class="fs-5 text-muted">₽</span>
+        </div>
+        
+        @if (!string.IsNullOrEmpty(Model.Features?.Value))
+        {
+            <ul class="list-unstyled mb-4">
+                @foreach (var feature in Model.Features.Value.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    <li class="mb-2">
+                        <svg class="bi text-success me-2" width="16" height="16" fill="currentColor">
+                            <use xlink:href="#check-circle-fill"/>
+                        </svg>
+                        @feature.Trim()
+                    </li>
+                }
+            </ul>
+        }
+        
+        <div class="mt-auto">
+            <a href="/tariff/purchase/@Model.TariffId?.Value" class="btn btn-primary w-100 py-2">Купить</a>
+        </div>
+    </div>
+</article>
+
+@* SVG иконка для списка особенностей *@
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+    <symbol id="check-circle-fill" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+    </symbol>
+</svg>
