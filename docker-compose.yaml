@@ -100,6 +100,95 @@ services:
       retries: 3
       start_period: 60s
 
+  # ==================== USER AUTHENTICATION SERVICE (.NET) ====================
+  user-authentication-service:
+    container_name: ${COMPOSE_PROJECT_NAME}-user-auth-service
+    build:
+      context: .
+      dockerfile: apps/user-authentication-service/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${AUTH_SERVICE_PORT:-8081}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${NODE_ENV:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      
+      # Подключение к PostgreSQL
+      ConnectionStrings__DefaultConnection: "Host=${DB_HOST};Port=${DB_PORT};Database=${AUTH_DB_NAME:-auth_db};Username=${DB_USER};Password=${DB_PASSWORD};SSL Mode=${SSL_MODE}"
+      
+      # Настройки для миграций
+      Database__AutoMigrate: ${DATABASE_AUTO_MIGRATE:-true}
+      Database__RetryCount: ${DATABASE_RETRY_COUNT:-3}
+      Database__RetryDelaySeconds: ${DATABASE_RETRY_DELAY:-5}
+      
+      # JWT настройки
+      JWT__Secret: ${JWT_SECRET}
+      JWT__Issuer: ${JWT_ISSUER:-UserAuthService}
+      JWT__Audience: ${JWT_AUDIENCE:-UserAuthServiceClient}
+      JWT__AccessTokenExpirationMinutes: ${JWT_ACCESS_TOKEN_EXPIRATION:-15}
+      JWT__RefreshTokenExpirationDays: ${JWT_REFRESH_TOKEN_EXPIRATION:-7}
+      JWT__RefreshTokenExpirationDaysRememberMe: ${JWT_REFRESH_TOKEN_EXPIRATION_REMEMBER_ME:-30}
+      
+      # CORS
+      Cors__Origins: ${CORS_ORIGIN}
+      
+      # Redis для кеширования и rate limiting
+      Redis__Host: redis-test
+      Redis__Port: ${REDIS_PORT}
+      Redis__Password: ${REDIS_PASSWORD}
+      Redis__Database: ${AUTH_REDIS_DB:-1}
+      
+      # RabbitMQ для событий
+      RabbitMQ__Host: ${RMQ_HOST}
+      RabbitMQ__VHost: ${RMQ_VHOST}
+      RabbitMQ__Username: ${RMQ_LOGIN}
+      RabbitMQ__Password: ${RMQ_PASSWORD}
+      RabbitMQ__Port: ${RMQ_PORT:-5672}
+      
+      # Google OAuth
+      GoogleAuth__ClientId: ${GOOGLE_CLIENT_ID}
+      GoogleAuth__ClientSecret: ${GOOGLE_CLIENT_SECRET}
+      
+      # SMS провайдер
+      SmsProvider__ApiKey: ${SMS_PROVIDER_API_KEY}
+      SmsProvider__ApiUrl: ${SMS_PROVIDER_API_URL}
+      SmsProvider__SenderName: ${SMS_PROVIDER_SENDER_NAME:-AuthService}
+      
+      # nopCommerce интеграция
+      NopCommerce__BaseUrl: ${NOPCOMMERCE_BASE_URL}
+      NopCommerce__ApiKey: ${NOPCOMMERCE_API_KEY}
+      NopCommerce__TimeoutSeconds: ${NOPCOMMERCE_TIMEOUT:-30}
+      NopCommerce__RetryCount: ${NOPCOMMERCE_RETRY_COUNT:-3}
+      
+      # Rate Limiting
+      RateLimiting__UserLoginAttempts: ${RATE_LIMIT_USER_ATTEMPTS:-5}
+      RateLimiting__UserLoginWindowMinutes: ${RATE_LIMIT_USER_WINDOW:-15}
+      RateLimiting__UserLockoutMinutes: ${RATE_LIMIT_USER_LOCKOUT:-15}
+      RateLimiting__IpLoginAttempts: ${RATE_LIMIT_IP_ATTEMPTS:-20}
+      RateLimiting__IpLoginWindowMinutes: ${RATE_LIMIT_IP_WINDOW:-60}
+      RateLimiting__IpLockoutMinutes: ${RATE_LIMIT_IP_LOCKOUT:-60}
+      
+      # Подтверждение телефона
+      PhoneVerification__CodeLength: ${PHONE_CODE_LENGTH:-6}
+      PhoneVerification__CodeExpirationMinutes: ${PHONE_CODE_EXPIRATION:-10}
+      PhoneVerification__MaxSendsPerHour: ${PHONE_MAX_SENDS_PER_HOUR:-3}
+    
+    volumes:
+      - ./apps/user-authentication-service/logs:/app/logs
+    
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_started
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
   # ==================== PGADMIN (ОПЦИОНАЛЬНО) ====================
   pgadmin-test:
     container_name: ${COMPOSE_PROJECT_NAME}-pgadmin

@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-authentication-config
+data:
+  # Настройки подключения к базе данных
+  ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=user_authentication;Username=postgres;Password=postgres"
+  
+  # Настройки Redis
+  Redis__ConnectionString: "redis:6379"
+  
+  # Настройки RabbitMQ
+  RabbitMQ__Host: "rabbitmq"
+  RabbitMQ__Port: "5672"
+  RabbitMQ__Username: "guest"
+  
+  # Настройки JWT
+  Jwt__Issuer: "UserAuthenticationService"
+  Jwt__Audience: "UserAuthenticationClient"
+  Jwt__AccessTokenExpirationMinutes: "15"
+  Jwt__RefreshTokenExpirationDays: "7"
+  Jwt__RefreshTokenExpirationDaysRememberMe: "30"
+  
+  # Настройки внешнего nopCommerce API
+  NopCommerce__BaseUrl: "https://shop.example.com/api"
+  NopCommerce__TimeoutSeconds: "30"
+  NopCommerce__RetryCount: "3"
+  
+  # Настройки CORS
+  Cors__AllowedOrigins: "http://localhost:3000,https://example.com"

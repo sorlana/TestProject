@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/Domain/">
+    <Project Path="Domain/Domain.Entities/Domain.Entities.csproj" />
+  </Folder>
+  <Folder Name="/Infrastructure/">
+    <Project Path="Infrastructure/Infrastructure.EntityFramework/Infrastructure.EntityFramework.csproj" />
+    <Project Path="Infrastructure/Infrastructure.ExternalServices/Infrastructure.ExternalServices.csproj" />
+    <Project Path="Infrastructure/Infrastructure.Identity/Infrastructure.Identity.csproj" />
+    <Project Path="Infrastructure/Infrastructure.Repositories.Implementations/Infrastructure.Repositories.Implementations.csproj" />
+    <Project Path="Infrastructure/Services.UnitTests/Services.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/Services/">
+    <Project Path="Services/Services.Abstractions/Services.Abstractions.csproj" />
+    <Project Path="Services/Services.Contracts/Services.Contracts.csproj" />
+    <Project Path="Services/Services.Implementations/Services.Implementations.csproj" />
+    <Project Path="Services/Services.Repositories.Abstractions/Services.Repositories.Abstractions.csproj" />
+  </Folder>
+  <Folder Name="/WebApi/">
+    <Project Path="WebApi/WebApi/WebApi.csproj" />
+  </Folder>
+</Solution>

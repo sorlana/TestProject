@@ -1,0 +1,16 @@
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\bin\Debug\net8.0\Services.Contracts.deps.json
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\bin\Debug\net8.0\Services.Contracts.dll
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\bin\Debug\net8.0\Services.Contracts.pdb
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\bin\Debug\net8.0\Domain.Entities.dll
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\bin\Debug\net8.0\Domain.Entities.pdb
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\obj\Debug\net8.0\Services.Contracts.csproj.AssemblyReference.cache
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\obj\Debug\net8.0\Services.Contracts.GeneratedMSBuildEditorConfig.editorconfig
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\obj\Debug\net8.0\Services.Contracts.AssemblyInfoInputs.cache
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\obj\Debug\net8.0\Services.Contracts.AssemblyInfo.cs
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\obj\Debug\net8.0\Services.Contracts.csproj.CoreCompileInputs.cache
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\obj\Debug\net8.0\Services.Contracts.sourcelink.json
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\obj\Debug\net8.0\Services.70B79F52.Up2Date
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\obj\Debug\net8.0\Services.Contracts.dll
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\obj\Debug\net8.0\refint\Services.Contracts.dll
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\obj\Debug\net8.0\Services.Contracts.pdb
+D:\SITES\My\TestProject\apps\user-authentication-service\Services\Services.Contracts\obj\Debug\net8.0\ref\Services.Contracts.dll

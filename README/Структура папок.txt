@@ -33,6 +33,36 @@
 │       ├── package.json
 │       ├── package-lock.json
 │       └── README.md
+│       └── 📁 frontend-app/      # новый фронтенд
+│           ├── 📁 src/
+│           │   ├── 📁 components/
+│           │   ├── 📁 pages/
+│           │   ├── 📁 services/   # API клиенты к микросервисам
+│           │   ├── 📁 store/      # состояние (Redux/Zustand)
+│           │   ├── 📁 styles/
+│           │   ├── 📁 utils/
+│           │   ├── App.jsx/tsx
+│           │   └── index.jsx/tsx
+│           │
+│           ├── 📁 public/
+│           │   ├── index.html
+│           │   └── favicon.ico
+│           │
+│           ├── 📁 k8s/
+│           │   ├── deployment.yaml
+│           │   ├── service.yaml
+│           │   └── ingress-patch.yaml   # специфичные для фронта правила
+│           │
+│           ├── 📁 nginx/               # или другой веб-сервер
+│           │   ├── nginx.conf
+│           │   └── default.conf.template
+│           │
+│           ├── Dockerfile              # мульти-стейдж сборка
+│           ├── .dockerignore
+│           ├── package.json
+│           ├── vite.config.js          # или webpack.config.js
+│           ├── .env.example
+│           └── README.md
 │
 ├── 📁 infra/
 │   │

@@ -1,0 +1,13 @@
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\bin\Debug\net8.0\Domain.Entities.deps.json
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\bin\Debug\net8.0\Domain.Entities.dll
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\bin\Debug\net8.0\Domain.Entities.pdb
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\obj\Debug\net8.0\Domain.Entities.csproj.AssemblyReference.cache
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\obj\Debug\net8.0\Domain.Entities.GeneratedMSBuildEditorConfig.editorconfig
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\obj\Debug\net8.0\Domain.Entities.AssemblyInfoInputs.cache
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\obj\Debug\net8.0\Domain.Entities.AssemblyInfo.cs
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\obj\Debug\net8.0\Domain.Entities.csproj.CoreCompileInputs.cache
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\obj\Debug\net8.0\Domain.Entities.sourcelink.json
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\obj\Debug\net8.0\Domain.Entities.dll
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\obj\Debug\net8.0\refint\Domain.Entities.dll
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\obj\Debug\net8.0\Domain.Entities.pdb
+D:\SITES\My\TestProject\apps\user-authentication-service\Domain\Domain.Entities\obj\Debug\net8.0\ref\Domain.Entities.dll
