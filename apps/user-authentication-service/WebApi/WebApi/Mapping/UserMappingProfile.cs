@@ -49,8 +49,7 @@ public class UserMappingProfile : Profile
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
             .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
             .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
-            .ForMember(dest => dest.Deleted, opt => opt.MapFrom(src => false))
-            .ForAllOtherMembers(opt => opt.Ignore());
+            .ForMember(dest => dest.Deleted, opt => opt.MapFrom(src => false));
 
         // Маппинг UpdateProfileRequest -> User (для обновления существующего пользователя)
         CreateMap<UpdateProfileRequest, User>()
@@ -59,21 +58,19 @@ public class UserMappingProfile : Profile
             .ForMember(dest => dest.FirstName, opt => opt.Condition(src => src.FirstName != null))
             .ForMember(dest => dest.LastName, opt => opt.Condition(src => src.LastName != null))
             .ForMember(dest => dest.MiddleName, opt => opt.Condition(src => src.MiddleName != null))
-            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
-            .ForAllOtherMembers(opt => opt.Ignore());
+            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => DateTime.UtcNow));
 
         // Маппинг GoogleUserInfo -> User
         CreateMap<GoogleUserInfo, User>()
             .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email))
             .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.Email))
-            .ForMember(dest => dest.FirstName, opt => opt.MapFrom(src => src.GivenName))
-            .ForMember(dest => dest.LastName, opt => opt.MapFrom(src => src.FamilyName))
-            .ForMember(dest => dest.GoogleId, opt => opt.MapFrom(src => src.Sub))
+            .ForMember(dest => dest.FirstName, opt => opt.MapFrom(src => src.FirstName))
+            .ForMember(dest => dest.LastName, opt => opt.MapFrom(src => src.LastName))
+            .ForMember(dest => dest.GoogleId, opt => opt.MapFrom(src => src.GoogleId))
             .ForMember(dest => dest.EmailConfirmed, opt => opt.MapFrom(src => src.EmailVerified))
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
             .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
             .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
-            .ForMember(dest => dest.Deleted, opt => opt.MapFrom(src => false))
-            .ForAllOtherMembers(opt => opt.Ignore());
+            .ForMember(dest => dest.Deleted, opt => opt.MapFrom(src => false));
     }
 }

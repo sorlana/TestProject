@@ -23,7 +23,7 @@ public static class ExternalServicesInstaller
     {
         // Регистрация настроек
         services.Configure<GoogleOAuthSettings>(configuration.GetSection("GoogleOAuth"));
-        services.Configure<SmsSettings>(configuration.GetSection("Sms"));
+        services.Configure<SmsSettings>(configuration.GetSection("SmsProvider"));
         services.Configure<NopCommerceSettings>(configuration.GetSection("NopCommerce"));
         services.Configure<RabbitMqSettings>(configuration.GetSection(RabbitMqSettings.SectionName));
 
@@ -46,7 +46,10 @@ public static class ExternalServicesInstaller
         // services.AddScoped<ISubscriptionService, SubscriptionService>();
 
         // Регистрация RabbitMQ Event Publisher
-        services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
+        // ВРЕМЕННО ОТКЛЮЧЕНО: Используем заглушку вместо RabbitMQ
+        // TODO: Включить после настройки RabbitMQ на проде
+        // services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
+        services.AddSingleton<IEventPublisher, NoOpEventPublisher>();
 
         return services;
     }

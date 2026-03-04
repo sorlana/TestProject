@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест Google Auth</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <h1>Тест Google авторизации</h1>
+    
+    <div id="g_id_onload"
+         data-client_id="986072857181-k77rcjis4dat7f3u60r2t120co6fsse3.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse">
+    </div>
+    
+    <div class="g_id_signin" data-type="standard"></div>
+    
+    <button onclick="testGoogleAuth()">Тест Google Auth</button>
+    
+    <div id="result"></div>
+
+    <script>
+        function handleCredentialResponse(response) {
+            console.log("Encoded JWT ID token: " + response.credential);
+            document.getElementById('result').innerHTML = 
+                '<h3>Успешно!</h3><p>Получен токен: ' + response.credential.substring(0, 50) + '...</p>';
+        }
+        
+        function testGoogleAuth() {
+            if (window.google && window.google.accounts && window.google.accounts.id) {
+                console.log('Google Identity Services загружен');
+                window.google.accounts.id.prompt();
+            } else {
+                console.error('Google Identity Services не загружен');
+                document.getElementById('result').innerHTML = 
+                    '<h3 style="color: red;">Ошибка!</h3><p>Google Identity Services не загружен</p>';
+            }
+        }
+        
+        // Проверяем загрузку Google GIS
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                if (window.google && window.google.accounts && window.google.accounts.id) {
+                    console.log('✅ Google Identity Services успешно загружен');
+                    document.getElementById('result').innerHTML = 
+                        '<p style="color: green;">✅ Google Identity Services загружен</p>';
+                } else {
+                    console.error('❌ Google Identity Services не загружен');
+                    document.getElementById('result').innerHTML = 
+                        '<p style="color: red;">❌ Google Identity Services не загружен</p>';
+                }
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

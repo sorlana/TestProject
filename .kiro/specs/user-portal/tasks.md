@@ -6,7 +6,7 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
 
 ## Задачи
 
-- [ ] 1. Инициализация проекта и настройка инфраструктуры
+- [x] 1. Инициализация проекта и настройка инфраструктуры
   - Создать проект с Vite + React + TypeScript в директории apps/user-portal/
   - Установить зависимости: @blueprintjs/core, @blueprintjs/icons, react-router-dom, zustand, axios
   - Настроить TypeScript (tsconfig.json) с strict режимом
@@ -14,8 +14,8 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
   - Создать структуру директорий согласно чистой архитектуре (presentation/, application/, domain/, infrastructure/)
   - _Requirements: 12.1, 12.5_
 
-- [ ] 2. Реализация Domain Layer (доменный слой)
-  - [ ] 2.1 Создать доменные типы и интерфейсы
+- [x] 2. Реализация Domain Layer (доменный слой)
+  - [x] 2.1 Создать доменные типы и интерфейсы
     - Создать src/domain/types/auth.types.ts с типами LoginCredentials, RegisterData, AuthResponse, GoogleAuthRequest, RefreshTokenRequest
     - Создать src/domain/entities/User.ts с интерфейсом User
     - Создать src/domain/types/api.types.ts с типом ApiError
@@ -23,8 +23,8 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - Создать src/domain/interfaces/ITokenService.ts с интерфейсом ITokenService
     - _Requirements: 1.1, 1.2, 1.3, 3.1, 3.2, 3.3, 4.1_
 
-- [ ] 3. Реализация Infrastructure Layer (инфраструктурный слой)
-  - [ ] 3.1 Реализовать Token Service
+- [x] 3. Реализация Infrastructure Layer (инфраструктурный слой)
+  - [x] 3.1 Реализовать Token Service
     - Создать src/infrastructure/services/tokenService.ts, реализующий ITokenService
     - Реализовать методы saveTokens, getAccessToken, getRefreshToken, clearTokens, isRememberMe
     - Использовать localStorage для rememberMe=true, sessionStorage для rememberMe=false
@@ -35,7 +35,7 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - **Property 11: Сохранение токенов в sessionStorage без "Запомнить меня"**
     - **Validates: Requirements 3.4, 4.1, 4.2**
   
-  - [ ] 3.3 Создать Axios instance с interceptors
+  - [x] 3.3 Создать Axios instance с interceptors
     - Создать src/infrastructure/services/api.ts с настроенным Axios instance
     - Настроить baseURL на '/api', timeout 30 секунд
     - Реализовать request interceptor для автоматического добавления JWT токена в заголовок Authorization
@@ -49,7 +49,7 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - **Property 14: Очистка токенов при неудачном обновлении**
     - **Validates: Requirements 4.3, 3.5, 4.4, 4.5**
   
-  - [ ] 3.4 Реализовать Auth Service
+  - [x] 3.4 Реализовать Auth Service
     - Создать src/infrastructure/services/authService.ts, реализующий IAuthService
     - Реализовать метод login: отправка POST /api/auth/login, сохранение токенов, обновление store
     - Реализовать метод register: отправка POST /api/auth/register, сохранение токенов, обновление store
@@ -65,7 +65,7 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - **Property 15: Выход из системы**
     - **Validates: Requirements 3.1, 3.2, 3.3, 3.6, 5.5**
   
-  - [ ] 3.6 Создать утилиты валидации
+  - [x] 3.6 Создать утилиты валидации
     - Создать src/infrastructure/utils/validation.ts
     - Реализовать функцию validateEmail для проверки формата email
     - Реализовать функцию validatePassword для проверки минимальной длины 8 символов
@@ -79,25 +79,25 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - **Property 4: Валидация совпадения паролей**
     - **Validates: Requirements 2.1, 2.2, 2.3**
 
-- [ ] 4. Checkpoint - Проверка инфраструктурного слоя
+- [x] 4. Checkpoint - Проверка инфраструктурного слоя
   - Убедиться, что все тесты проходят, задать вопросы пользователю при необходимости
 
-- [ ] 5. Реализация Application Layer (слой приложения)
-  - [ ] 5.1 Создать Zustand store для аутентификации
+- [x] 5. Реализация Application Layer (слой приложения)
+  - [x] 5.1 Создать Zustand store для аутентификации
     - Создать src/application/store/authStore.ts
     - Реализовать состояние: isAuthenticated, user, isLoading, error
     - Реализовать методы: setAuthenticated, setUser, setLoading, setError, reset
     - _Requirements: 4.1, 5.1_
   
-  - [ ] 5.2 Создать custom hook useAuth
+  - [x] 5.2 Создать custom hook useAuth
     - Создать src/application/hooks/useAuth.ts
     - Реализовать hook, который использует authStore и authService
     - Предоставить методы: login, register, loginWithGoogle, logout
     - Обрабатывать состояния загрузки и ошибок
     - _Requirements: 3.1, 3.2, 3.3, 3.6_
 
-- [ ] 6. Реализация Presentation Layer - компоненты авторизации
-  - [ ] 6.1 Создать LoginForm компонент
+- [x] 6. Реализация Presentation Layer - компоненты авторизации
+  - [x] 6.1 Создать LoginForm компонент
     - Создать src/presentation/components/auth/LoginForm.tsx
     - Использовать Blueprint UI компоненты: FormGroup, InputGroup, Checkbox, Button
     - Реализовать поля: username, password, rememberMe
@@ -113,7 +113,7 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - Тест вызова onSubmit с корректными данными
     - _Requirements: 1.2, 2.5_
   
-  - [ ] 6.3 Создать RegisterForm компонент
+  - [x] 6.3 Создать RegisterForm компонент
     - Создать src/presentation/components/auth/RegisterForm.tsx
     - Использовать Blueprint UI компоненты для полей: username, email, phone, password, confirmPassword, firstName, lastName, middleName
     - Реализовать клиентскую валидацию всех полей
@@ -127,7 +127,7 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - Тест валидации совпадения паролей
     - _Requirements: 1.3, 2.1, 2.3_
   
-  - [ ] 6.5 Создать GoogleAuthButton компонент
+  - [x] 6.5 Создать GoogleAuthButton компонент
     - Создать src/presentation/components/auth/GoogleAuthButton.tsx
     - Интегрировать Google Identity Services (GIS) библиотеку
     - Реализовать кнопку "Войти через Google" с Blueprint Button
@@ -135,7 +135,7 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - Вызывать useAuth().loginWithGoogle с полученным токеном
     - _Requirements: 1.4, 3.3_
   
-  - [ ] 6.6 Создать LoginPage
+  - [x] 6.6 Создать LoginPage
     - Создать src/presentation/pages/LoginPage.tsx
     - Использовать Blueprint Tabs для переключения между "Вход" и "Регистрация"
     - Отображать LoginForm на табе "Вход"
@@ -148,8 +148,8 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - **Property 1: Успешная авторизация приводит к редиректу на dashboard**
     - **Validates: Requirements 1.5**
 
-- [ ] 7. Реализация Presentation Layer - layout компоненты
-  - [ ] 7.1 Создать Header компонент
+- [-] 7. Реализация Presentation Layer - layout компоненты
+  - [x] 7.1 Создать Header компонент
     - Создать src/presentation/components/layout/Header.tsx
     - Использовать Blueprint Navbar компонент
     - Отображать логотип/название платформы слева
@@ -164,7 +164,7 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - Тест вызова logout при клике на кнопку "Выйти"
     - _Requirements: 5.3, 5.5_
   
-  - [ ] 7.3 Создать ProtectedRoute компонент
+  - [x] 7.3 Создать ProtectedRoute компонент
     - Создать src/presentation/components/layout/ProtectedRoute.tsx
     - Проверять наличие JWT токена через tokenService
     - Проверять состояние isAuthenticated из authStore
@@ -177,35 +177,35 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - **Property 17: Доступ к защищенным маршрутам с валидным токеном**
     - **Validates: Requirements 6.1, 6.3, 6.4**
   
-  - [ ] 7.5 Создать ErrorBoundary компонент
+  - [x] 7.5 Создать ErrorBoundary компонент
     - Создать src/presentation/components/common/ErrorBoundary.tsx
     - Реализовать React Error Boundary для перехвата ошибок рендеринга
     - Отображать fallback UI при ошибке
     - Логировать ошибки в консоль (dev режим)
     - _Requirements: 8.5_
   
-  - [ ] 7.6 Создать LoadingSpinner компонент
+  - [x] 7.6 Создать LoadingSpinner компонент
     - Создать src/presentation/components/common/LoadingSpinner.tsx
     - Использовать Blueprint Spinner компонент
     - Отображать индикатор загрузки с центрированием
     - _Requirements: 5.1_
 
-- [ ] 8. Реализация Presentation Layer - страницы
-  - [ ] 8.1 Создать DashboardPage
+- [x] 8. Реализация Presentation Layer - страницы
+  - [x] 8.1 Создать DashboardPage
     - Создать src/presentation/pages/DashboardPage.tsx
     - Отображать Header компонент
     - Отображать приветственное сообщение с именем пользователя
     - Пока оставить основную область пустой (заглушка для будущего функционала)
     - _Requirements: 5.1_
   
-  - [ ] 8.2 Создать PaymentPage (заглушка)
+  - [x] 8.2 Создать PaymentPage (заглушка)
     - Создать src/presentation/pages/PaymentPage.tsx
     - Отображать Header компонент
     - Отображать сообщение "Страница оплаты - в разработке"
     - _Requirements: 7.3_
 
-- [ ] 9. Настройка маршрутизации и главного компонента
-  - [ ] 9.1 Настроить React Router
+- [x] 9. Настройка маршрутизации и главного компонента
+  - [x] 9.1 Настроить React Router
     - Создать src/App.tsx с настройкой React Router
     - Настроить маршрут /app/login для LoginPage
     - Настроить защищенный маршрут /app/dashboard для DashboardPage (через ProtectedRoute)
@@ -220,8 +220,8 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - Тест доступа к защищенным маршрутам
     - _Requirements: 6.5, 6.6_
 
-- [ ] 10. Обработка ошибок
-  - [ ] 10.1 Реализовать обработку ошибок API
+- [x] 10. Обработка ошибок
+  - [x] 10.1 Реализовать обработку ошибок API
     - Обновить authService для обработки различных типов ошибок
     - Обработка ошибок валидации (400): извлечение и отображение ошибок для полей
     - Обработка ошибок аутентификации (401): очистка токенов и редирект
@@ -237,11 +237,11 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - **Property 21: Обработка ошибок авторизации**
     - **Validates: Requirements 8.1, 8.2, 8.3, 8.4**
 
-- [ ] 11. Checkpoint - Проверка функциональности
+- [x] 11. Checkpoint - Проверка функциональности
   - Убедиться, что все тесты проходят, задать вопросы пользователю при необходимости
 
-- [ ] 12. Адаптивный дизайн
-  - [ ] 12.1 Реализовать адаптивные стили
+- [x] 12. Адаптивный дизайн
+  - [x] 12.1 Реализовать адаптивные стили
     - Создать src/index.css с глобальными стилями и media queries
     - Определить breakpoints: mobile (< 768px), tablet (768px - 1024px), desktop (> 1024px)
     - Реализовать mobile-first подход
@@ -257,27 +257,27 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - **Property 25: Динамическая адаптация при изменении размера**
     - **Validates: Requirements 9.1, 9.2, 9.3, 9.4**
 
-- [ ] 13. Настройка тестирования
-  - [ ] 13.1 Настроить Vitest и React Testing Library
+- [x] 13. Настройка тестирования
+  - [x] 13.1 Настроить Vitest и React Testing Library
     - Установить зависимости: vitest, @testing-library/react, @testing-library/user-event, @testing-library/jest-dom
     - Создать vitest.config.ts с настройками для React
     - Создать src/test/setup.ts для настройки тестового окружения
     - _Requirements: Testing Strategy_
   
-  - [ ] 13.2 Настроить fast-check для property-based тестирования
+  - [x] 13.2 Настроить fast-check для property-based тестирования
     - Установить зависимость: fast-check
     - Настроить минимум 100 итераций для каждого property теста
     - Создать примеры property тестов с тегами формата "Feature: user-portal, Property N: ..."
     - _Requirements: Testing Strategy_
 
-- [ ] 14. Развертывание
-  - [ ] 14.1 Создать Dockerfile
+- [x] 14. Развертывание
+  - [x] 14.1 Создать Dockerfile
     - Создать Dockerfile с multi-stage build (builder + nginx)
     - Builder stage: установка зависимостей и сборка проекта с Vite
     - Production stage: копирование собранных файлов в nginx:alpine
     - _Requirements: 10.1_
   
-  - [ ] 14.2 Создать Nginx конфигурацию
+  - [x] 14.2 Создать Nginx конфигурацию
     - Создать nginx/nginx.conf
     - Настроить раздачу статических файлов из /usr/share/nginx/html
     - Настроить SPA routing (try_files для fallback на index.html)
@@ -286,14 +286,14 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - Настроить кэширование статических файлов (js, css, изображения)
     - _Requirements: 10.2, 10.5_
   
-  - [ ] 14.3 Создать Kubernetes манифесты
+  - [x] 14.3 Создать Kubernetes манифесты
     - Создать k8s/deployment.yaml с 2 репликами, resource limits, health checks
     - Создать k8s/service.yaml с ClusterIP сервисом на порту 80
     - Создать k8s/ingress.yaml с путем /app/* и TLS конфигурацией
     - _Requirements: 10.3, 10.4_
 
-- [ ] 15. Финальная интеграция и документация
-  - [ ] 15.1 Создать README.md
+- [x] 15. Финальная интеграция и документация
+  - [x] 15.1 Создать README.md
     - Описать структуру проекта и чистую архитектуру
     - Добавить инструкции по локальной разработке (npm install, npm run dev)
     - Добавить инструкции по сборке (npm run build)
@@ -302,14 +302,14 @@ User Portal - это фронтенд SPA на React с TypeScript, следую
     - Описать переменные окружения и конфигурацию
     - _Requirements: 12.1_
   
-  - [ ] 15.2 Финальное тестирование
+  - [x] 15.2 Финальное тестирование
     - Запустить все unit тесты
     - Запустить все property тесты
     - Проверить работу приложения локально
     - Проверить сборку Docker образа
     - _Requirements: Testing Strategy_
 
-- [ ] 16. Checkpoint - Финальная проверка
+- [x] 16. Checkpoint - Финальная проверка
   - Убедиться, что все тесты проходят, приложение собирается и работает корректно
 
 ## Примечания

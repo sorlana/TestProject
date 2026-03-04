@@ -1,11 +1,13 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
 using WebApi.Settings;
 using WebApi.Middleware;
+using Infrastructure.ExternalServices.DependencyInjection;
 
 // Настройка Serilog из конфигурации
 Log.Logger = new LoggerConfiguration()
@@ -56,6 +58,51 @@ try
     // Регистрация AutoMapper
     builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
+    // Регистрация DbContext
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("DefaultConnection не настроена");
+    
+    builder.Services.AddDbContext<Infrastructure.EntityFramework.DatabaseContext>(options =>
+        options.UseNpgsql(connectionString));
+
+    // Регистрация ASP.NET Core Identity
+    builder.Services.AddIdentity<Domain.Entities.Entities.User, Microsoft.AspNetCore.Identity.IdentityRole<Guid>>(options =>
+    {
+        // Настройки пароля
+        options.Password.RequireDigit = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireNonAlphanumeric = true;
+        options.Password.RequiredLength = 8;
+        
+        // Настройки пользователя
+        options.User.RequireUniqueEmail = true;
+        
+        // Настройки блокировки
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.AllowedForNewUsers = true;
+    })
+    .AddEntityFrameworkStores<Infrastructure.EntityFramework.DatabaseContext>();
+
+    // Регистрация репозиториев
+    builder.Services.AddScoped<Services.Repositories.Abstractions.Interfaces.IUserRepository, Infrastructure.Repositories.Implementations.Repositories.UserRepository>();
+    builder.Services.AddScoped<Services.Repositories.Abstractions.Interfaces.IRefreshTokenRepository, Infrastructure.Repositories.Implementations.Repositories.RefreshTokenRepository>();
+    builder.Services.AddScoped<Services.Repositories.Abstractions.Interfaces.IAuthenticationLogRepository, Infrastructure.Repositories.Implementations.Repositories.AuthenticationLogRepository>();
+    builder.Services.AddScoped<Services.Repositories.Abstractions.Interfaces.IPhoneVerificationCodeRepository, Infrastructure.Repositories.Implementations.Repositories.PhoneVerificationCodeRepository>();
+    builder.Services.AddScoped<Services.Repositories.Abstractions.Interfaces.IUserSubscriptionRepository, Infrastructure.Repositories.Implementations.Repositories.UserSubscriptionRepository>();
+
+    // Регистрация внешних сервисов (Google, SMS, NopCommerce, RabbitMQ)
+    builder.Services.AddExternalServices(builder.Configuration);
+
+    // Регистрация сервисов приложения
+    builder.Services.AddScoped<Services.Abstractions.Interfaces.IAuthenticationService, Services.Implementations.Implementations.AuthenticationService>();
+    builder.Services.AddScoped<Services.Abstractions.Interfaces.IPasswordService, Services.Implementations.Implementations.PasswordService>();
+    builder.Services.AddScoped<Services.Abstractions.Interfaces.IPhoneVerificationService, Services.Implementations.Implementations.PhoneVerificationService>();
+    builder.Services.AddScoped<Services.Abstractions.Interfaces.ITokenService, Services.Implementations.Implementations.TokenService>();
+    builder.Services.AddScoped<Services.Abstractions.Interfaces.IUserProfileService, Services.Implementations.Implementations.UserProfileService>();
+    builder.Services.AddScoped<Services.Abstractions.Interfaces.ISubscriptionService, Services.Implementations.Services.SubscriptionService>();
+
 // Настройка CORS
 const string corsPolicy = "DefaultCorsPolicy";
 builder.Services.AddCors(options =>
@@ -74,8 +121,12 @@ builder.Services.AddCors(options =>
 });
 
 // Настройка Redis для distributed cache
-var redisConnection = builder.Configuration.GetConnectionString("Redis")
-    ?? throw new InvalidOperationException("Redis connection string не настроена");
+var redisHost = builder.Configuration["Redis:Host"] ?? "localhost";
+var redisPort = builder.Configuration["Redis:Port"] ?? "6379";
+var redisPassword = builder.Configuration["Redis:Password"];
+var redisConnection = string.IsNullOrEmpty(redisPassword) 
+    ? $"{redisHost}:{redisPort}" 
+    : $"{redisHost}:{redisPort},password={redisPassword}";
 
 builder.Services.AddStackExchangeRedisCache(options =>
 {
@@ -87,9 +138,6 @@ builder.Services.AddStackExchangeRedisCache(options =>
 var postgresConnection = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("DefaultConnection не настроена");
 
-var rabbitmqConnection = builder.Configuration.GetConnectionString("RabbitMQ")
-    ?? "amqp://guest:guest@localhost:5672";
-
 builder.Services.AddHealthChecks()
     .AddNpgSql(
         postgresConnection,
@@ -98,11 +146,7 @@ builder.Services.AddHealthChecks()
     .AddRedis(
         redisConnection,
         name: "redis",
-        tags: new[] { "cache", "ready" })
-    .AddRabbitMQ(
-        rabbitConnectionString: rabbitmqConnection,
-        name: "rabbitmq",
-        tags: new[] { "messaging", "ready" });
+        tags: new[] { "cache", "ready" });
 
 // Настройка JWT Authentication
 builder.Services.AddAuthentication(options =>
@@ -114,7 +158,7 @@ builder.Services.AddAuthentication(options =>
 .AddJwtBearer(options =>
 {
     options.SaveToken = true;
-    options.RequireHttpsMetadata = true; // В продакшене требуется HTTPS
+    options.RequireHttpsMetadata = false; // Для локальной разработки отключаем требование HTTPS
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -261,14 +305,15 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 // Добавляем Request Logging Middleware для обогащения логов
 app.UseMiddleware<RequestLoggingMiddleware>();
 
-// Редирект на HTTPS
-app.UseHttpsRedirection();
+// Редирект на HTTPS (отключен для локальной разработки)
+// app.UseHttpsRedirection();
 
 // Добавляем CORS
 app.UseCors(corsPolicy);
 
-// Добавляем Rate Limiting Middleware перед аутентификацией
-app.UseMiddleware<RateLimitingMiddleware>();
+// ВРЕМЕННО ОТКЛЮЧЕНО: Rate Limiting Middleware (требует настройки Redis)
+// TODO: Включить после настройки Redis на проде
+// app.UseMiddleware<RateLimitingMiddleware>();
 
 // Добавляем middleware аутентификации и авторизации
 app.UseAuthentication();

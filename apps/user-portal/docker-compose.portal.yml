@@ -1,0 +1,21 @@
+services:
+  user-portal:
+    container_name: testproject-user-portal
+    image: user-portal-testproject
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    environment:
+      NODE_ENV: production
+    networks:
+      - testproject_default
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  testproject_default:
+    external: true

@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: user-portal-ingress
+  labels:
+    app: user-portal
+    component: frontend
+  annotations:
+    # Настройки для nginx-ingress контроллера
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Настройки для SPA маршрутизации
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      try_files $uri $uri/ /index.html;
+    # Настройки кэширования статических файлов
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+      }
+spec:
+  # TLS конфигурация
+  tls:
+  - hosts:
+    - your-domain.com
+    secretName: user-portal-tls
+  rules:
+  - host: your-domain.com
+    http:
+      paths:
+      # Маршрут для приложения /app/*
+      - path: /app
+        pathType: Prefix
+        backend:
+          service:
+            name: user-portal-service
+            port:
+              number: 80
+      # Дополнительный маршрут для корня (опционально)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: user-portal-service
+            port:
+              number: 80

@@ -249,6 +249,9 @@ public class AuthenticationService : IAuthenticationService
             };
         }
 
+        // ВРЕМЕННО ОТКЛЮЧЕНО: Проверка подтверждения телефона
+        // TODO: Включить после настройки SMS-сервиса на проде
+        /*
         if (!user.PhoneNumberConfirmed)
         {
             _logger.LogWarning("Вход отклонен: телефон не подтвержден для пользователя {UserName}", request.UserName);
@@ -260,6 +263,7 @@ public class AuthenticationService : IAuthenticationService
                 Errors = new[] { "Необходимо подтвердить номер телефона" }
             };
         }
+        */
 
         var accessToken = _tokenService.GenerateJwtToken(user, await _userManager.GetRolesAsync(user));
         var refreshToken = await _tokenService.GenerateRefreshTokenAsync(user.Id, request.RememberMe, cancellationToken);

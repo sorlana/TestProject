@@ -1,0 +1,258 @@
+/**
+ * Стили для Header компонента
+ * Адаптивная навигация для различных размеров экрана
+ * Mobile-first подход с breakpoints: mobile (< 768px), tablet (768px - 1024px), desktop (> 1024px)
+ */
+
+.header-navbar {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background-color: var(--bp5-color-bg-1);
+  border-bottom: 1px solid var(--bp5-color-border);
+  transition: all 0.2s ease;
+}
+
+.header-logo {
+  font-weight: 600;
+  color: var(--bp5-color-text-primary);
+  font-size: 18px;
+  transition: font-size 0.2s ease;
+}
+
+.header-user-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-username {
+  color: var(--bp5-color-text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.2s ease;
+}
+
+/* Мобильные устройства (< 768px) - базовые стили */
+.header-navbar {
+  padding: 0 12px;
+  min-height: 50px;
+}
+
+.header-logo {
+  font-size: 16px;
+}
+
+.header-username {
+  max-width: 100px;
+  font-size: 14px;
+}
+
+.header-user-section .bp5-button {
+  min-width: auto;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+/* Скрываем текст кнопки на мобильных, оставляем только иконку */
+.header-user-section .bp5-button .bp5-button-text {
+  display: none;
+}
+
+.header-user-section .bp5-button .bp5-icon {
+  margin: 0;
+}
+
+/* Адаптация для очень маленьких экранов */
+@media screen and (max-width: 360px) {
+  .header-navbar {
+    padding: 0 8px;
+  }
+  
+  .header-logo {
+    font-size: 14px;
+  }
+  
+  .header-username {
+    max-width: 80px;
+    font-size: 12px;
+  }
+  
+  .header-user-section .bp5-button {
+    padding: 4px 6px;
+  }
+}
+
+/* Планшеты (768px - 1023px) */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  .header-navbar {
+    padding: 0 16px;
+    min-height: 56px;
+  }
+  
+  .header-logo {
+    font-size: 18px;
+  }
+  
+  .header-username {
+    max-width: 150px;
+    font-size: 15px;
+  }
+  
+  .header-user-section .bp5-button {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  
+  /* Показываем текст кнопки на планшетах */
+  .header-user-section .bp5-button .bp5-button-text {
+    display: inline;
+    margin-left: 6px;
+  }
+}
+
+/* Десктопы (> 1024px) */
+@media screen and (min-width: 1024px) {
+  .header-navbar {
+    padding: 0 24px;
+    min-height: 60px;
+  }
+  
+  .header-logo {
+    font-size: 20px;
+  }
+  
+  .header-username {
+    max-width: 200px;
+    font-size: 16px;
+  }
+  
+  .header-user-section .bp5-button {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+  
+  /* Полный текст кнопки на десктопе */
+  .header-user-section .bp5-button .bp5-button-text {
+    display: inline;
+    margin-left: 8px;
+  }
+  
+  /* Hover эффекты только на десктопе */
+  .header-user-section .bp5-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Большие десктопы (> 1440px) */
+@media screen and (min-width: 1440px) {
+  .header-navbar {
+    padding: 0 32px;
+  }
+  
+  .header-logo {
+    font-size: 22px;
+  }
+  
+  .header-username {
+    max-width: 250px;
+    font-size: 16px;
+  }
+}
+
+/* Ландшафтная ориентация на мобильных */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .header-navbar {
+    min-height: 44px;
+    padding: 0 8px;
+  }
+  
+  .header-logo {
+    font-size: 14px;
+  }
+  
+  .header-username {
+    font-size: 12px;
+    max-width: 80px;
+  }
+  
+  .header-user-section .bp5-button {
+    padding: 4px 6px;
+    font-size: 12px;
+  }
+}
+
+/* Темная тема */
+.bp5-dark .header-navbar {
+  background-color: var(--bp5-color-bg-1);
+  border-bottom: 1px solid var(--bp5-color-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.bp5-dark .header-logo {
+  color: var(--bp5-color-text-primary);
+}
+
+.bp5-dark .header-username {
+  color: var(--bp5-color-text-secondary);
+}
+
+/* Анимации только если пользователь не отключил их */
+@media (prefers-reduced-motion: no-preference) {
+  .header-navbar,
+  .header-logo,
+  .header-username,
+  .header-user-section .bp5-button {
+    transition: all 0.2s ease;
+  }
+}
+
+/* Отключение анимаций для пользователей с ограниченными возможностями */
+@media (prefers-reduced-motion: reduce) {
+  .header-navbar,
+  .header-logo,
+  .header-username,
+  .header-user-section .bp5-button {
+    transition: none;
+  }
+}
+
+/* Улучшение доступности - увеличение области клика на мобильных */
+@media screen and (max-width: 767px) {
+  .header-user-section .bp5-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Стили для состояния фокуса */
+.header-user-section .bp5-button:focus {
+  outline: 2px solid var(--bp5-color-primary);
+  outline-offset: 2px;
+}
+
+/* Адаптивное скрытие элементов */
+@media screen and (max-width: 480px) {
+  .header-navbar .bp5-navbar-divider {
+    display: none;
+  }
+}
+
+/* Стили для печати */
+@media print {
+  .header-navbar {
+    position: static;
+    box-shadow: none;
+    border-bottom: 1px solid #000;
+    background: white !important;
+  }
+  
+  .header-user-section .bp5-button {
+    display: none;
+  }
+}

@@ -104,8 +104,8 @@ services:
   user-authentication-service:
     container_name: ${COMPOSE_PROJECT_NAME}-user-auth-service
     build:
-      context: .
-      dockerfile: apps/user-authentication-service/Dockerfile
+      context: ./apps/user-authentication-service
+      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "${AUTH_SERVICE_PORT:-8081}:8080"
@@ -139,11 +139,11 @@ services:
       Redis__Database: ${AUTH_REDIS_DB:-1}
       
       # RabbitMQ для событий
-      RabbitMQ__Host: ${RMQ_HOST}
-      RabbitMQ__VHost: ${RMQ_VHOST}
-      RabbitMQ__Username: ${RMQ_LOGIN}
-      RabbitMQ__Password: ${RMQ_PASSWORD}
-      RabbitMQ__Port: ${RMQ_PORT:-5672}
+      RabbitMq__Host: ${RMQ_HOST}
+      RabbitMq__VirtualHost: ${RMQ_VHOST}
+      RabbitMq__UserName: ${RMQ_LOGIN}
+      RabbitMq__Password: ${RMQ_PASSWORD}
+      RabbitMq__Port: ${RMQ_PORT:-5672}
       
       # Google OAuth
       GoogleAuth__ClientId: ${GOOGLE_CLIENT_ID}
@@ -181,13 +181,6 @@ services:
         condition: service_healthy
       redis-test:
         condition: service_started
-    
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
 
   # ==================== LANDING CMS (.NET + PIRANHA CMS) ====================
   landing-cms:
@@ -232,6 +225,23 @@ services:
       retries: 3
       start_period: 60s
 
+  # ==================== USER PORTAL (REACT SPA) ====================
+  user-portal:
+    container_name: ${COMPOSE_PROJECT_NAME}-user-portal
+    build:
+      context: ./apps/user-portal
+      dockerfile: Dockerfile.direct
+    restart: unless-stopped
+    ports:
+      - "${USER_PORTAL_PORT:-3001}:80"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+    depends_on:
+      user-authentication-service:
+        condition: service_started
+    networks:
+      - default
+
   # ==================== PGADMIN (ОПЦИОНАЛЬНО) ====================
   pgadmin-test:
     container_name: ${COMPOSE_PROJECT_NAME}-pgadmin
@@ -258,3 +268,9 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}-redis-data
   pgadmin_data:
     name: ${COMPOSE_PROJECT_NAME}-pgadmin-data
+
+# ============= NETWORKS =============
+networks:
+  default:
+    name: ${COMPOSE_PROJECT_NAME}_default
+    driver: bridge

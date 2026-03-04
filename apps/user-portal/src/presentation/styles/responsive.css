@@ -1,0 +1,390 @@
+/**
+ * Адаптивные утилиты и компоненты
+ * Mobile-first подход с breakpoints: mobile (< 768px), tablet (768px - 1024px), desktop (> 1024px)
+ */
+
+/* Адаптивные контейнеры */
+.responsive-container {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+@media screen and (min-width: 768px) {
+  .responsive-container {
+    max-width: 720px;
+    padding: 0 24px;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .responsive-container {
+    max-width: 1200px;
+    padding: 0 32px;
+  }
+}
+
+@media screen and (min-width: 1440px) {
+  .responsive-container {
+    max-width: 1400px;
+    padding: 0 40px;
+  }
+}
+
+/* Адаптивная сетка */
+.responsive-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media screen and (min-width: 768px) {
+  .responsive-grid {
+    gap: 20px;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .responsive-grid.grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .responsive-grid {
+    gap: 24px;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .responsive-grid.grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .responsive-grid.grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Адаптивные отступы */
+.spacing-xs { margin: 4px; }
+.spacing-sm { margin: 8px; }
+.spacing-md { margin: 16px; }
+.spacing-lg { margin: 24px; }
+.spacing-xl { margin: 32px; }
+
+.padding-xs { padding: 4px; }
+.padding-sm { padding: 8px; }
+.padding-md { padding: 16px; }
+.padding-lg { padding: 24px; }
+.padding-xl { padding: 32px; }
+
+/* Адаптивные отступы по breakpoints */
+@media screen and (max-width: 767px) {
+  .mobile-spacing-sm { margin: 8px; }
+  .mobile-spacing-md { margin: 12px; }
+  .mobile-spacing-lg { margin: 16px; }
+  
+  .mobile-padding-sm { padding: 8px; }
+  .mobile-padding-md { padding: 12px; }
+  .mobile-padding-lg { padding: 16px; }
+}
+
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  .tablet-spacing-sm { margin: 12px; }
+  .tablet-spacing-md { margin: 20px; }
+  .tablet-spacing-lg { margin: 28px; }
+  
+  .tablet-padding-sm { padding: 12px; }
+  .tablet-padding-md { padding: 20px; }
+  .tablet-padding-lg { padding: 28px; }
+}
+
+@media screen and (min-width: 1024px) {
+  .desktop-spacing-sm { margin: 16px; }
+  .desktop-spacing-md { margin: 24px; }
+  .desktop-spacing-lg { margin: 32px; }
+  
+  .desktop-padding-sm { padding: 16px; }
+  .desktop-padding-md { padding: 24px; }
+  .desktop-padding-lg { padding: 32px; }
+}
+
+/* Адаптивная типографика */
+.responsive-text {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+@media screen and (min-width: 768px) {
+  .responsive-text {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .responsive-text {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+}
+
+.responsive-heading {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+@media screen and (min-width: 768px) {
+  .responsive-heading {
+    font-size: 24px;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .responsive-heading {
+    font-size: 28px;
+  }
+}
+
+/* Утилиты видимости */
+.mobile-only {
+  display: block;
+}
+
+.tablet-only,
+.desktop-only {
+  display: none;
+}
+
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  .mobile-only {
+    display: none;
+  }
+  
+  .tablet-only {
+    display: block;
+  }
+  
+  .desktop-only {
+    display: none;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .mobile-only,
+  .tablet-only {
+    display: none;
+  }
+  
+  .desktop-only {
+    display: block;
+  }
+}
+
+/* Адаптивные кнопки */
+.responsive-button {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 12px 16px;
+}
+
+@media screen and (min-width: 768px) {
+  .responsive-button {
+    min-height: 40px;
+    font-size: 15px;
+    padding: 10px 16px;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .responsive-button {
+    min-height: 36px;
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+}
+
+/* Адаптивные поля ввода */
+.responsive-input {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 12px;
+}
+
+@media screen and (min-width: 768px) {
+  .responsive-input {
+    min-height: 40px;
+    font-size: 15px;
+    padding: 10px 12px;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .responsive-input {
+    min-height: 36px;
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+}
+
+/* Адаптивные карточки */
+.responsive-card {
+  padding: 20px;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+}
+
+@media screen and (min-width: 768px) {
+  .responsive-card {
+    padding: 24px;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .responsive-card {
+    padding: 32px;
+  }
+  
+  .responsive-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Адаптивные модальные окна */
+.responsive-modal {
+  width: 95vw;
+  max-width: 400px;
+  margin: 20px auto;
+}
+
+@media screen and (min-width: 768px) {
+  .responsive-modal {
+    width: 80vw;
+    max-width: 500px;
+    margin: 40px auto;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .responsive-modal {
+    width: 60vw;
+    max-width: 600px;
+    margin: 60px auto;
+  }
+}
+
+/* Адаптивные таблицы */
+.responsive-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.responsive-table table {
+  min-width: 600px;
+}
+
+@media screen and (min-width: 768px) {
+  .responsive-table table {
+    min-width: 100%;
+  }
+}
+
+/* Адаптивные изображения */
+.responsive-image {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+/* Адаптивные видео */
+.responsive-video {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.responsive-video iframe,
+.responsive-video video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Утилиты для центрирования */
+.center-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.center-text {
+  text-align: center;
+}
+
+/* Утилиты для скрытия скроллбара */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Адаптивные breakpoints для кастомных медиа-запросов */
+:root {
+  --mobile-max: 767px;
+  --tablet-min: 768px;
+  --tablet-max: 1023px;
+  --desktop-min: 1024px;
+  --large-desktop-min: 1440px;
+}
+
+/* Утилиты для отладки адаптивности (только в dev режиме) */
+.debug-breakpoint::before {
+  content: 'Mobile';
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: #ff6b6b;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 9999;
+  font-family: monospace;
+}
+
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  .debug-breakpoint::before {
+    content: 'Tablet';
+    background: #4ecdc4;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .debug-breakpoint::before {
+    content: 'Desktop';
+    background: #45b7d1;
+  }
+}
+
+@media screen and (min-width: 1440px) {
+  .debug-breakpoint::before {
+    content: 'Large Desktop';
+    background: #96ceb4;
+  }
+}
+
+/* Отключение debug в production */
+.debug-breakpoint.production::before {
+  display: none;
+}

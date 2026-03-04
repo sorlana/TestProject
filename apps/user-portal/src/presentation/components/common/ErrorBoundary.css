@@ -1,0 +1,97 @@
+/**
+ * Стили для компонента ErrorBoundary
+ */
+
+.error-boundary-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  padding: 20px;
+}
+
+.error-boundary-card {
+  max-width: 600px;
+  width: 100%;
+}
+
+.error-boundary-content {
+  text-align: center;
+  padding: 20px;
+}
+
+.error-boundary-icon {
+  margin-bottom: 16px;
+}
+
+.error-boundary-title {
+  color: #d9534f;
+  margin-bottom: 16px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.error-boundary-message {
+  color: #666;
+  margin-bottom: 24px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.error-boundary-details {
+  text-align: left;
+  margin-bottom: 24px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.error-boundary-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.error-boundary-stack {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 12px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.error-boundary-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+  .error-boundary-container {
+    padding: 16px;
+    min-height: 300px;
+  }
+  
+  .error-boundary-content {
+    padding: 16px;
+  }
+  
+  .error-boundary-title {
+    font-size: 20px;
+  }
+  
+  .error-boundary-message {
+    font-size: 14px;
+  }
+  
+  .error-boundary-actions {
+    flex-direction: column;
+  }
+}

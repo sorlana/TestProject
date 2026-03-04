@@ -1,0 +1,33 @@
+# Multi-stage build для User Portal с прямым подключением к test-service
+# Stage 1: Builder - установка зависимостей и сборка проекта с Vite
+FROM node:18-alpine AS builder
+
+# Установка рабочей директории
+WORKDIR /app
+
+# Копирование package.json и package-lock.json для кэширования зависимостей
+COPY package*.json ./
+
+# Установка зависимостей (включая dev для сборки)
+RUN npm ci --legacy-peer-deps
+
+# Копирование исходного кода
+COPY . .
+
+# Сборка проекта с Vite
+RUN npm run build
+
+# Stage 2: Production - копирование собранных файлов в nginx:alpine
+FROM nginx:alpine
+
+# Копирование собранных файлов из builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Копирование direct конфигурации nginx
+COPY nginx/nginx-direct.conf /etc/nginx/nginx.conf
+
+# Открытие порта 80
+EXPOSE 80
+
+# Запуск nginx
+CMD ["nginx", "-g", "daemon off;"]

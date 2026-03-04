@@ -1,0 +1,385 @@
+/**
+ * Адаптивные стили для DashboardPage
+ * Mobile-first подход с breakpoints: mobile (< 768px), tablet (768px - 1024px), desktop (> 1024px)
+ */
+
+.dashboard-page {
+  min-height: 100vh;
+  background-color: #f5f8fa;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-content {
+  flex: 1;
+  padding: 20px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.dashboard-card {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+  transition: all 0.2s ease;
+}
+
+/* Приветственное сообщение */
+.dashboard-page .dashboard-welcome {
+  margin-bottom: 16px;
+}
+
+.dashboard-page .dashboard-welcome h2 {
+  color: #394b59;
+  font-size: 24px;
+  margin: 0 0 8px 0;
+  font-weight: 600;
+}
+
+.dashboard-page .dashboard-description {
+  color: #5c7080;
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+/* Основная область */
+.dashboard-main-area {
+  margin-top: 30px;
+  padding: 40px;
+  background-color: #f5f8fa;
+  border-radius: 6px;
+  text-align: center;
+  border: 2px dashed #d1d5da;
+  transition: all 0.2s ease;
+}
+
+.dashboard-main-area .bp5-text {
+  color: #5c7080;
+  font-size: 16px;
+  font-style: italic;
+}
+
+/* Мобильные устройства (< 768px) - базовые стили */
+@media screen and (max-width: 767px) {
+  .dashboard-content {
+    padding: 16px;
+  }
+  
+  .dashboard-card {
+    margin: 0;
+    max-width: none;
+    padding: 20px;
+  }
+  
+  .dashboard-page .dashboard-welcome h2 {
+    font-size: 20px;
+    text-align: center;
+  }
+  
+  .dashboard-page .dashboard-description {
+    font-size: 14px;
+    text-align: center;
+  }
+  
+  .dashboard-main-area {
+    margin-top: 20px;
+    padding: 24px 16px;
+  }
+  
+  .dashboard-main-area .bp5-text {
+    font-size: 14px;
+  }
+}
+
+/* Очень маленькие экраны */
+@media screen and (max-width: 360px) {
+  .dashboard-content {
+    padding: 12px;
+  }
+  
+  .dashboard-card {
+    padding: 16px;
+  }
+  
+  .dashboard-page .dashboard-welcome h2 {
+    font-size: 18px;
+  }
+  
+  .dashboard-page .dashboard-description {
+    font-size: 13px;
+  }
+  
+  .dashboard-main-area {
+    padding: 20px 12px;
+  }
+  
+  .dashboard-main-area .bp5-text {
+    font-size: 13px;
+  }
+}
+
+/* Ландшафтная ориентация на мобильных */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .dashboard-content {
+    padding: 12px;
+  }
+  
+  .dashboard-card {
+    padding: 16px;
+  }
+  
+  .dashboard-page .dashboard-welcome h2 {
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+  
+  .dashboard-page .dashboard-description {
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  
+  .dashboard-main-area {
+    margin-top: 16px;
+    padding: 20px;
+  }
+  
+  .dashboard-main-area .bp5-text {
+    font-size: 13px;
+  }
+}
+
+/* Планшеты (768px - 1023px) */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  .dashboard-content {
+    padding: 24px;
+    max-width: 900px;
+  }
+  
+  .dashboard-card {
+    max-width: 900px;
+    padding: 32px;
+  }
+  
+  .dashboard-page .dashboard-welcome h2 {
+    font-size: 26px;
+  }
+  
+  .dashboard-page .dashboard-description {
+    font-size: 16px;
+  }
+  
+  .dashboard-main-area {
+    margin-top: 32px;
+    padding: 48px 32px;
+  }
+  
+  .dashboard-main-area .bp5-text {
+    font-size: 16px;
+  }
+}
+
+/* Десктопы (> 1024px) */
+@media screen and (min-width: 1024px) {
+  .dashboard-content {
+    padding: 32px;
+    max-width: 1000px;
+  }
+  
+  .dashboard-card {
+    max-width: 1000px;
+    padding: 40px;
+  }
+  
+  .dashboard-page .dashboard-welcome h2 {
+    font-size: 28px;
+  }
+  
+  .dashboard-page .dashboard-description {
+    font-size: 17px;
+  }
+  
+  .dashboard-main-area {
+    margin-top: 40px;
+    padding: 60px 40px;
+  }
+  
+  .dashboard-main-area .bp5-text {
+    font-size: 17px;
+  }
+  
+  /* Hover эффекты только на десктопе */
+  .dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+  
+  .dashboard-main-area:hover {
+    border-color: #137cbd;
+    background-color: rgba(19, 124, 189, 0.02);
+  }
+}
+
+/* Большие десктопы (> 1440px) */
+@media screen and (min-width: 1440px) {
+  .dashboard-content {
+    max-width: 1200px;
+    padding: 40px;
+  }
+  
+  .dashboard-card {
+    max-width: 1200px;
+    padding: 48px;
+  }
+  
+  .dashboard-page .dashboard-welcome h2 {
+    font-size: 32px;
+  }
+  
+  .dashboard-page .dashboard-description {
+    font-size: 18px;
+  }
+  
+  .dashboard-main-area {
+    padding: 80px 60px;
+  }
+  
+  .dashboard-main-area .bp5-text {
+    font-size: 18px;
+  }
+}
+
+/* Темная тема */
+.bp5-dark .dashboard-page {
+  background-color: #293742;
+}
+
+.bp5-dark .dashboard-page .dashboard-welcome h2 {
+  color: #f5f8fa;
+}
+
+.bp5-dark .dashboard-page .dashboard-description {
+  color: #a7b6c2;
+}
+
+.bp5-dark .dashboard-main-area {
+  background-color: #394b59;
+  border-color: #5c7080;
+}
+
+.bp5-dark .dashboard-main-area .bp5-text {
+  color: #a7b6c2;
+}
+
+.bp5-dark .dashboard-main-area:hover {
+  border-color: #48aff0;
+  background-color: rgba(72, 175, 240, 0.05);
+}
+
+/* Анимации только если пользователь не отключил их */
+@media (prefers-reduced-motion: no-preference) {
+  .dashboard-card,
+  .dashboard-main-area {
+    transition: all 0.2s ease;
+  }
+}
+
+/* Отключение анимаций для пользователей с ограниченными возможностями */
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-card,
+  .dashboard-main-area {
+    transition: none;
+  }
+}
+
+/* Улучшение доступности */
+.dashboard-main-area:focus {
+  outline: 2px solid var(--bp5-color-primary);
+  outline-offset: 2px;
+}
+
+/* Стили для печати */
+@media print {
+  .dashboard-page {
+    background: white !important;
+  }
+  
+  .dashboard-content {
+    padding: 20px;
+  }
+  
+  .dashboard-card {
+    box-shadow: none;
+    border: 1px solid #000;
+    max-width: none;
+  }
+  
+  .dashboard-main-area {
+    border: 1px solid #000;
+    background: white !important;
+  }
+  
+  .dashboard-page .dashboard-welcome h2,
+  .dashboard-page .dashboard-description,
+  .dashboard-main-area .bp5-text {
+    color: black !important;
+  }
+}
+
+/* Дополнительные утилитарные классы для dashboard */
+.dashboard-section {
+  margin-bottom: 32px;
+}
+
+.dashboard-section:last-child {
+  margin-bottom: 0;
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+/* Адаптивная сетка */
+@media screen and (max-width: 767px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+}
+
+/* Карточки в сетке */
+.dashboard-grid-item {
+  background: white;
+  border-radius: 6px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+}
+
+.bp5-dark .dashboard-grid-item {
+  background: var(--bp5-color-bg-2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+@media screen and (min-width: 1024px) {
+  .dashboard-grid-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}

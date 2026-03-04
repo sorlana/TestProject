@@ -1,0 +1,365 @@
+/**
+ * Адаптивные стили для форм авторизации
+ * Mobile-first подход с breakpoints: mobile (< 768px), tablet (768px - 1024px), desktop (> 1024px)
+ */
+
+/* Общие стили для форм авторизации */
+.auth-form {
+  width: 100%;
+}
+
+.auth-form .bp5-form-group {
+  margin-bottom: 16px;
+}
+
+.auth-form .bp5-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.auth-form .bp5-label {
+  font-weight: 500;
+  color: var(--bp5-color-text-primary);
+  margin-bottom: 6px;
+}
+
+.auth-form .bp5-input {
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.auth-form .bp5-input:focus {
+  box-shadow: 0 0 0 3px rgba(19, 124, 189, 0.3);
+}
+
+.auth-form .bp5-button {
+  width: 100%;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.auth-form .bp5-checkbox {
+  margin: 16px 0;
+}
+
+.auth-form .bp5-checkbox .bp5-control-indicator {
+  margin-right: 8px;
+}
+
+/* Стили для ошибок */
+.auth-form .bp5-form-group.bp5-intent-danger .bp5-input {
+  border-color: var(--bp5-color-danger);
+  box-shadow: 0 0 0 1px var(--bp5-color-danger);
+}
+
+.auth-form .bp5-form-group.bp5-intent-danger .bp5-input:focus {
+  box-shadow: 0 0 0 3px rgba(219, 55, 55, 0.3);
+}
+
+.auth-form .bp5-form-helper-text {
+  font-size: 12px;
+  margin-top: 4px;
+  color: var(--bp5-color-text-muted);
+}
+
+.auth-form .bp5-form-helper-text.bp5-intent-danger {
+  color: var(--bp5-color-danger);
+}
+
+/* Мобильные устройства (< 768px) - базовые стили */
+.auth-form .bp5-input {
+  font-size: 16px; /* Предотвращает зум на iOS */
+  min-height: 44px; /* Минимальная высота для удобного тапа */
+  padding: 12px;
+}
+
+.auth-form .bp5-button {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 12px;
+}
+
+.auth-form .bp5-checkbox {
+  font-size: 14px;
+}
+
+.auth-form .bp5-checkbox .bp5-control-indicator {
+  width: 20px;
+  height: 20px;
+}
+
+.auth-form .bp5-form-group {
+  margin-bottom: 20px;
+}
+
+/* Очень маленькие экраны */
+@media screen and (max-width: 360px) {
+  .auth-form .bp5-input {
+    padding: 10px;
+    font-size: 15px;
+  }
+  
+  .auth-form .bp5-button {
+    padding: 10px;
+    font-size: 15px;
+  }
+  
+  .auth-form .bp5-form-group {
+    margin-bottom: 18px;
+  }
+  
+  .auth-form .bp5-checkbox {
+    font-size: 13px;
+  }
+}
+
+/* Ландшафтная ориентация на мобильных */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .auth-form .bp5-form-group {
+    margin-bottom: 12px;
+  }
+  
+  .auth-form .bp5-input {
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+  
+  .auth-form .bp5-button {
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+  
+  .auth-form .bp5-checkbox {
+    margin: 12px 0;
+  }
+}
+
+/* Планшеты (768px - 1023px) */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  .auth-form .bp5-input {
+    font-size: 15px;
+    min-height: 40px;
+    padding: 10px 12px;
+  }
+  
+  .auth-form .bp5-button {
+    min-height: 40px;
+    font-size: 15px;
+    padding: 10px 16px;
+  }
+  
+  .auth-form .bp5-form-group {
+    margin-bottom: 18px;
+  }
+  
+  .auth-form .bp5-checkbox {
+    font-size: 15px;
+  }
+  
+  .auth-form .bp5-checkbox .bp5-control-indicator {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Десктопы (> 1024px) */
+@media screen and (min-width: 1024px) {
+  .auth-form .bp5-input {
+    font-size: 14px;
+    min-height: 36px;
+    padding: 8px 12px;
+  }
+  
+  .auth-form .bp5-button {
+    min-height: 36px;
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+  
+  .auth-form .bp5-form-group {
+    margin-bottom: 20px;
+  }
+  
+  .auth-form .bp5-checkbox {
+    font-size: 14px;
+  }
+  
+  .auth-form .bp5-checkbox .bp5-control-indicator {
+    width: 16px;
+    height: 16px;
+  }
+  
+  /* Hover эффекты только на десктопе */
+  .auth-form .bp5-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .auth-form .bp5-input:hover {
+    border-color: var(--bp5-color-primary);
+  }
+}
+
+/* Стили для Google кнопки */
+.google-auth-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.google-auth-button:hover {
+  background-color: #3367d6;
+  color: white;
+}
+
+.google-auth-button:focus {
+  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.3);
+}
+
+.google-auth-button .google-icon {
+  width: 18px;
+  height: 18px;
+  background-color: white;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Мобильные стили для Google кнопки */
+@media screen and (max-width: 767px) {
+  .google-auth-button {
+    min-height: 44px;
+    font-size: 16px;
+    padding: 12px;
+  }
+  
+  .google-auth-button .google-icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Планшетные стили для Google кнопки */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  .google-auth-button {
+    min-height: 40px;
+    font-size: 15px;
+    padding: 10px 16px;
+  }
+  
+  .google-auth-button .google-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Десктопные стили для Google кнопки */
+@media screen and (min-width: 1024px) {
+  .google-auth-button {
+    min-height: 36px;
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+  
+  .google-auth-button .google-icon {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .google-auth-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+  }
+}
+
+/* Темная тема */
+.bp5-dark .auth-form .bp5-label {
+  color: var(--bp5-color-text-primary);
+}
+
+.bp5-dark .auth-form .bp5-form-helper-text {
+  color: var(--bp5-color-text-muted);
+}
+
+.bp5-dark .google-auth-button {
+  background-color: #4285f4;
+}
+
+.bp5-dark .google-auth-button:hover {
+  background-color: #3367d6;
+}
+
+/* Анимации только если пользователь не отключил их */
+@media (prefers-reduced-motion: no-preference) {
+  .auth-form .bp5-input,
+  .auth-form .bp5-button,
+  .google-auth-button {
+    transition: all 0.2s ease;
+  }
+}
+
+/* Отключение анимаций для пользователей с ограниченными возможностями */
+@media (prefers-reduced-motion: reduce) {
+  .auth-form .bp5-input,
+  .auth-form .bp5-button,
+  .google-auth-button {
+    transition: none;
+  }
+}
+
+/* Улучшение доступности */
+.auth-form .bp5-input:focus,
+.auth-form .bp5-button:focus,
+.google-auth-button:focus {
+  outline: 2px solid var(--bp5-color-primary);
+  outline-offset: 2px;
+}
+
+/* Стили для состояния загрузки */
+.auth-form .bp5-button.bp5-loading {
+  cursor: not-allowed;
+}
+
+.auth-form .bp5-button.bp5-loading:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Стили для валидации в реальном времени */
+.auth-form .bp5-input.validating {
+  border-color: var(--bp5-color-orange3);
+}
+
+.auth-form .bp5-input.valid {
+  border-color: var(--bp5-color-green3);
+}
+
+.auth-form .bp5-input.invalid {
+  border-color: var(--bp5-color-red3);
+}
+
+/* Стили для автозаполнения */
+.auth-form .bp5-input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--bp5-color-bg-1) inset;
+  -webkit-text-fill-color: var(--bp5-color-text-primary);
+}
+
+/* Стили для печати */
+@media print {
+  .auth-form .bp5-button,
+  .google-auth-button {
+    border: 1px solid #000;
+    background: white !important;
+    color: black !important;
+  }
+  
+  .auth-form .bp5-input {
+    border: 1px solid #000;
+    background: white !important;
+  }
+}

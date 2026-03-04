@@ -1,0 +1,333 @@
+/**
+ * Глобальные стили для User Portal
+ * Адаптивный дизайн с mobile-first подходом
+ */
+
+/* Импорт адаптивных утилит */
+@import './presentation/styles/responsive.css';
+
+/* Базовые переменные и настройки */
+:root {
+  /* Шрифты */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* Цветовая схема */
+  color-scheme: light dark;
+  
+  /* Оптимизация рендеринга */
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  /* Breakpoints для адаптивности */
+  --mobile-max: 767px;
+  --tablet-min: 768px;
+  --tablet-max: 1023px;
+  --desktop-min: 1024px;
+  
+  /* Отступы и размеры */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+  
+  /* Размеры контейнеров */
+  --container-mobile: 100%;
+  --container-tablet: 720px;
+  --container-desktop: 1200px;
+  
+  /* Размеры шрифтов */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-xxl: 32px;
+}
+
+/* Сброс стилей */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #f5f8fa;
+  color: #394b59;
+}
+
+/* Базовые стили для ссылок */
+a {
+  color: #137cbd;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #106ba3;
+  text-decoration: underline;
+}
+
+/* Контейнеры */
+.container {
+  width: 100%;
+  max-width: var(--container-mobile);
+  margin: 0 auto;
+  padding: 0 var(--spacing-md);
+}
+
+/* Утилитарные классы */
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.visible {
+  display: block !important;
+}
+
+/* Адаптивные утилиты для скрытия/показа элементов */
+.mobile-only {
+  display: block;
+}
+
+.tablet-only,
+.desktop-only {
+  display: none;
+}
+
+/* Mobile First - базовые стили для мобильных устройств (< 768px) */
+@media screen and (max-width: 767px) {
+  :root {
+    --font-size-base: var(--font-size-sm);
+  }
+  
+  .container {
+    padding: 0 var(--spacing-sm);
+  }
+  
+  /* Стили для страниц */
+  .login-page {
+    padding: var(--spacing-md);
+  }
+  
+  .login-page .bp5-card {
+    padding: var(--spacing-lg) !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+  
+  .dashboard-page .dashboard-content {
+    padding: var(--spacing-md) !important;
+  }
+  
+  .dashboard-page .bp5-card {
+    margin: 0 !important;
+    max-width: none !important;
+  }
+  
+  /* Формы на мобильных */
+  .bp5-form-group {
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .bp5-input,
+  .bp5-button {
+    font-size: var(--font-size-md);
+    min-height: 44px; /* Минимальная высота для удобного тапа */
+  }
+  
+  .bp5-tabs {
+    font-size: var(--font-size-sm);
+  }
+  
+  .bp5-tab {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+}
+
+/* Планшеты (768px - 1023px) */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  :root {
+    --font-size-base: var(--font-size-md);
+  }
+  
+  .container {
+    max-width: var(--container-tablet);
+    padding: 0 var(--spacing-lg);
+  }
+  
+  .mobile-only {
+    display: none;
+  }
+  
+  .tablet-only {
+    display: block;
+  }
+  
+  /* Стили для страниц на планшетах */
+  .login-page {
+    padding: var(--spacing-xl);
+  }
+  
+  .login-page .bp5-card {
+    padding: var(--spacing-xl) !important;
+    max-width: 500px !important;
+  }
+  
+  .dashboard-page .dashboard-content {
+    padding: var(--spacing-lg) !important;
+  }
+  
+  .dashboard-page .bp5-card {
+    max-width: 900px !important;
+  }
+  
+  /* Формы на планшетах */
+  .bp5-input,
+  .bp5-button {
+    font-size: var(--font-size-md);
+    min-height: 40px;
+  }
+}
+
+/* Десктопы (> 1024px) */
+@media screen and (min-width: 1024px) {
+  :root {
+    --font-size-base: var(--font-size-md);
+  }
+  
+  .container {
+    max-width: var(--container-desktop);
+    padding: 0 var(--spacing-xl);
+  }
+  
+  .mobile-only,
+  .tablet-only {
+    display: none;
+  }
+  
+  .desktop-only {
+    display: block;
+  }
+  
+  /* Стили для страниц на десктопе */
+  .login-page {
+    padding: var(--spacing-xxl);
+  }
+  
+  .login-page .bp5-card {
+    padding: var(--spacing-xxl) !important;
+    max-width: 480px !important;
+  }
+  
+  .dashboard-page .dashboard-content {
+    padding: var(--spacing-xl) !important;
+  }
+  
+  .dashboard-page .bp5-card {
+    max-width: 1000px !important;
+  }
+  
+  /* Формы на десктопе */
+  .bp5-input,
+  .bp5-button {
+    font-size: var(--font-size-md);
+    min-height: 36px;
+  }
+  
+  /* Hover эффекты только на десктопе */
+  .bp5-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Дополнительные адаптивные стили для очень больших экранов */
+@media screen and (min-width: 1440px) {
+  .container {
+    max-width: 1400px;
+  }
+  
+  .login-page .bp5-card {
+    max-width: 520px !important;
+  }
+  
+  .dashboard-page .bp5-card {
+    max-width: 1200px !important;
+  }
+}
+
+/* Стили для высоких экранов (landscape на мобильных) */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .login-page {
+    padding: var(--spacing-sm);
+    min-height: auto;
+  }
+  
+  .login-page .bp5-card {
+    padding: var(--spacing-md) !important;
+  }
+}
+
+/* Темная тема */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #293742;
+    color: #f5f8fa;
+  }
+  
+  a {
+    color: #48aff0;
+  }
+  
+  a:hover {
+    color: #2b95d6;
+  }
+}
+
+/* Анимации и переходы */
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    transition: all 0.2s ease;
+  }
+  
+  .bp5-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .bp5-button {
+    transition: all 0.2s ease;
+  }
+}
+
+/* Отключение анимаций для пользователей с ограниченными возможностями */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

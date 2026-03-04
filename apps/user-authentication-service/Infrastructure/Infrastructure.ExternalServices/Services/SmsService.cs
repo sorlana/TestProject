@@ -43,9 +43,9 @@ public class SmsService : ISmsService
             // Формат: /sms/send?api_id=YOUR_API_KEY&to=PHONE&msg=MESSAGE&json=1
             var requestUrl = $"/sms/send?api_id={_settings.ApiKey}&to={phoneNumber}&msg={Uri.EscapeDataString(message)}&json=1";
 
-            if (!string.IsNullOrEmpty(_settings.SenderName))
+            if (!string.IsNullOrEmpty(_settings.FromPhoneNumber))
             {
-                requestUrl += $"&from={Uri.EscapeDataString(_settings.SenderName)}";
+                requestUrl += $"&from={Uri.EscapeDataString(_settings.FromPhoneNumber)}";
             }
 
             var response = await _httpClient.GetAsync(requestUrl, cancellationToken);

@@ -1,0 +1,368 @@
+/**
+ * Адаптивные стили для LoginPage
+ * Mobile-first подход с breakpoints: mobile (< 768px), tablet (768px - 1024px), desktop (> 1024px)
+ */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f5f8fa;
+  padding: 16px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+  transition: all 0.2s ease;
+}
+
+/* Заголовок страницы */
+.login-page .login-title {
+  text-align: center;
+  margin-bottom: 24px;
+  color: #394b59;
+}
+
+/* Стили для табов */
+.login-page .bp5-tabs {
+  margin-bottom: 0;
+}
+
+.login-page .bp5-tab-panel {
+  padding-top: 20px;
+}
+
+/* Стили для форм */
+.login-page .bp5-form-group {
+  margin-bottom: 16px;
+}
+
+.login-page .bp5-input {
+  width: 100%;
+  font-size: 16px; /* Предотвращает зум на iOS */
+  min-height: 44px; /* Минимальная высота для удобного тапа */
+}
+
+.login-page .bp5-button {
+  width: 100%;
+  min-height: 44px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Разделитель */
+.login-page .bp5-divider {
+  margin: 24px 0;
+}
+
+/* Дополнительная информация */
+.login-page .auth-switch {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 14px;
+  color: #5c7080;
+}
+
+.login-page .auth-switch button {
+  background: none;
+  border: none;
+  color: #137cbd;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+  padding: 0;
+  margin: 0;
+}
+
+.login-page .auth-switch button:hover {
+  color: #106ba3;
+}
+
+/* Мобильные устройства (< 768px) - базовые стили */
+@media screen and (max-width: 767px) {
+  .login-page {
+    padding: 12px;
+    align-items: flex-start;
+    padding-top: 20px;
+  }
+  
+  .login-card {
+    padding: 20px;
+    max-width: none;
+    margin: 0;
+  }
+  
+  .login-page .login-title h3 {
+    font-size: 20px;
+    margin: 0;
+  }
+  
+  .login-page .bp5-tabs .bp5-tab {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+  
+  .login-page .bp5-form-group {
+    margin-bottom: 20px;
+  }
+  
+  .login-page .bp5-input {
+    font-size: 16px;
+    padding: 12px;
+  }
+  
+  .login-page .bp5-button {
+    padding: 12px;
+    font-size: 16px;
+  }
+  
+  .login-page .bp5-checkbox {
+    font-size: 14px;
+  }
+  
+  /* Уменьшаем отступы на маленьких экранах */
+  .login-page .bp5-divider {
+    margin: 20px 0;
+  }
+  
+  .login-page .auth-switch {
+    margin-top: 20px;
+    font-size: 13px;
+  }
+}
+
+/* Очень маленькие экраны */
+@media screen and (max-width: 360px) {
+  .login-page {
+    padding: 8px;
+    padding-top: 16px;
+  }
+  
+  .login-card {
+    padding: 16px;
+  }
+  
+  .login-page .login-title h3 {
+    font-size: 18px;
+  }
+  
+  .login-page .bp5-tabs .bp5-tab {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+/* Ландшафтная ориентация на мобильных */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .login-page {
+    padding: 8px;
+    align-items: flex-start;
+    padding-top: 10px;
+  }
+  
+  .login-card {
+    padding: 16px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  .login-page .login-title {
+    margin-bottom: 16px;
+  }
+  
+  .login-page .login-title h3 {
+    font-size: 16px;
+  }
+  
+  .login-page .bp5-form-group {
+    margin-bottom: 12px;
+  }
+  
+  .login-page .bp5-divider {
+    margin: 16px 0;
+  }
+  
+  .login-page .auth-switch {
+    margin-top: 16px;
+  }
+}
+
+/* Планшеты (768px - 1023px) */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  .login-page {
+    padding: 32px;
+  }
+  
+  .login-card {
+    padding: 32px;
+    max-width: 500px;
+  }
+  
+  .login-page .login-title h3 {
+    font-size: 24px;
+  }
+  
+  .login-page .bp5-tabs .bp5-tab {
+    padding: 14px 20px;
+    font-size: 15px;
+  }
+  
+  .login-page .bp5-input {
+    font-size: 15px;
+    min-height: 40px;
+    padding: 10px 12px;
+  }
+  
+  .login-page .bp5-button {
+    min-height: 40px;
+    font-size: 15px;
+    padding: 10px 16px;
+  }
+  
+  .login-page .bp5-form-group {
+    margin-bottom: 18px;
+  }
+}
+
+/* Десктопы (> 1024px) */
+@media screen and (min-width: 1024px) {
+  .login-page {
+    padding: 48px;
+  }
+  
+  .login-card {
+    padding: 40px;
+    max-width: 480px;
+  }
+  
+  .login-page .login-title h3 {
+    font-size: 26px;
+  }
+  
+  .login-page .bp5-tabs .bp5-tab {
+    padding: 16px 24px;
+    font-size: 16px;
+  }
+  
+  .login-page .bp5-input {
+    font-size: 14px;
+    min-height: 36px;
+    padding: 8px 12px;
+  }
+  
+  .login-page .bp5-button {
+    min-height: 36px;
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+  
+  .login-page .bp5-form-group {
+    margin-bottom: 20px;
+  }
+  
+  /* Hover эффекты только на десктопе */
+  .login-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+  
+  .login-page .bp5-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .login-page .auth-switch button:hover {
+    text-decoration: none;
+    background-color: rgba(19, 124, 189, 0.1);
+    padding: 2px 4px;
+    border-radius: 3px;
+  }
+}
+
+/* Большие десктопы (> 1440px) */
+@media screen and (min-width: 1440px) {
+  .login-card {
+    max-width: 520px;
+    padding: 48px;
+  }
+  
+  .login-page .login-title h3 {
+    font-size: 28px;
+  }
+}
+
+/* Темная тема */
+.bp5-dark .login-page {
+  background-color: #293742;
+}
+
+.bp5-dark .login-page .login-title {
+  color: #f5f8fa;
+}
+
+.bp5-dark .login-page .auth-switch {
+  color: #a7b6c2;
+}
+
+.bp5-dark .login-page .auth-switch button {
+  color: #48aff0;
+}
+
+.bp5-dark .login-page .auth-switch button:hover {
+  color: #2b95d6;
+  background-color: rgba(72, 175, 240, 0.1);
+}
+
+/* Анимации только если пользователь не отключил их */
+@media (prefers-reduced-motion: no-preference) {
+  .login-card {
+    transition: all 0.2s ease;
+  }
+  
+  .login-page .bp5-button {
+    transition: all 0.2s ease;
+  }
+  
+  .login-page .auth-switch button {
+    transition: all 0.2s ease;
+  }
+}
+
+/* Отключение анимаций для пользователей с ограниченными возможностями */
+@media (prefers-reduced-motion: reduce) {
+  .login-card,
+  .login-page .bp5-button,
+  .login-page .auth-switch button {
+    transition: none;
+  }
+}
+
+/* Улучшение доступности */
+.login-page .bp5-button:focus,
+.login-page .auth-switch button:focus {
+  outline: 2px solid var(--bp5-color-primary);
+  outline-offset: 2px;
+}
+
+/* Стили для печати */
+@media print {
+  .login-page {
+    background: white !important;
+    padding: 20px;
+  }
+  
+  .login-card {
+    box-shadow: none;
+    border: 1px solid #000;
+    max-width: none;
+  }
+  
+  .login-page .bp5-button {
+    border: 1px solid #000;
+    background: white !important;
+    color: black !important;
+  }
+}
